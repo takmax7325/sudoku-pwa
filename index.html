@@ -2291,6 +2291,7 @@ function pauseGame() {
   if (state.status!=='playing') return;
   state.status='paused';
   stopTimer();
+  renderTimer();
   renderTimerState();
   haptic('light');
   saveGame();
@@ -2300,6 +2301,7 @@ function resumeGame() {
   if (state.status!=='paused') return;
   state.status='playing';
   startTimer();
+  renderTimer();
   renderTimerState();
   haptic('light');
 }
