@@ -2545,14 +2545,7 @@ function showResult() {
   const el=document.getElementById('result');
   el.classList.toggle('insane-result',state.difficulty==='insane');
 
-  const score=calcScore();
-  const scoreColors={S:'linear-gradient(135deg,#ffd60a,#ff9f0a)',A:'linear-gradient(135deg,#3478F6,#0a9fcc)',B:'linear-gradient(135deg,#30d158,#00b377)',C:'linear-gradient(135deg,#636366,#48484a)'};
-  const scoreEmojis={S:'🏆',A:'⭐',B:'👍',C:'✅'};
-
   document.getElementById('result-title').textContent=state.difficulty==='insane'?'🏆 鬼難問クリア！':'クリア！';
-  document.getElementById('score-badge').style.background=scoreColors[score];
-  document.getElementById('score-emoji').textContent=scoreEmojis[score];
-  document.getElementById('score-letter').textContent=score;
   document.getElementById('result-time').textContent=formatTime(state.elapsed);
   document.getElementById('res-time2').textContent=formatTime(state.elapsed);
   document.getElementById('res-est').textContent=diff.est;
