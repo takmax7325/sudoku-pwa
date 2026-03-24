@@ -110,35 +110,34 @@
       text-transform: uppercase; letter-spacing: 0.5px;
     }
     .diff-grid {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+      display: grid; grid-template-columns: 1fr; gap: 12px;
     }
     .diff-card {
-      background: var(--bg2); border-radius: var(--radius); padding: 16px;
+      background: var(--bg2); border-radius: var(--radius); padding: 18px 20px;
       box-shadow: var(--shadow-sm); cursor: pointer;
       transition: transform .15s var(--ease), box-shadow .15s;
       border: 2px solid transparent; position: relative; overflow: hidden;
     }
-    .diff-card:active { transform: scale(0.96); }
-    .diff-card.insane { grid-column: 1/-1; }
-    .diff-card-icon { font-size: 24px; margin-bottom: 8px; }
-    .diff-card-name { font-size: 16px; font-weight: 700; }
-    .diff-card-time { font-size: 12px; color: var(--text2); margin-top: 2px; }
+    .diff-card:active { transform: scale(0.98); }
+    .diff-card-icon { font-size: 26px; margin-bottom: 6px; }
+    .diff-card-name { font-size: 18px; font-weight: 700; }
+    .diff-card-time { font-size: 13px; color: var(--text2); margin-top: 2px; }
     .diff-card-best {
-      position: absolute; top: 12px; right: 12px;
-      font-size: 11px; color: var(--text3); font-variant-numeric: tabular-nums;
+      position: absolute; top: 14px; right: 16px;
+      font-size: 12px; color: var(--text3); font-variant-numeric: tabular-nums;
     }
     .diff-card-bar {
-      height: 3px; border-radius: 2px; margin-top: 10px;
+      height: 3px; border-radius: 2px; margin-top: 12px;
     }
     /* 問題に戻るボタン（カード内） */
     .diff-card-continue-btn {
       display: none; width: 100%;
-      margin-top: 8px; padding: 7px 8px;
+      margin-top: 12px; padding: 13px 12px;
       background: var(--accent); color: #fff;
-      border: none; border-radius: 8px;
-      font-size: 12px; font-weight: 700; font-family: var(--font);
+      border: none; border-radius: 10px;
+      font-size: 15px; font-weight: 700; font-family: var(--font);
       cursor: pointer;
-      align-items: center; justify-content: center; gap: 4px;
+      align-items: center; justify-content: center; gap: 6px;
       transition: opacity .15s, transform .1s var(--spring);
       -webkit-tap-highlight-color: transparent;
     }
@@ -147,15 +146,15 @@
 
     /* プールUI */
     .diff-card-pool {
-      font-size: 10px; color: var(--text3); margin-top: 4px;
+      font-size: 11px; color: var(--text3); margin-top: 4px;
       font-variant-numeric: tabular-nums;
     }
     .diff-card-gen-btn {
-      margin-top: 8px; width: 100%;
-      padding: 6px 8px;
+      margin-top: 10px; width: 100%;
+      padding: 12px 12px;
       background: var(--bg3); color: var(--text2);
-      border: none; border-radius: 8px;
-      font-size: 11px; font-weight: 600; font-family: var(--font);
+      border: none; border-radius: 10px;
+      font-size: 14px; font-weight: 600; font-family: var(--font);
       cursor: pointer;
       transition: background .12s, transform .1s var(--spring);
       -webkit-tap-highlight-color: transparent;
