@@ -194,6 +194,10 @@
     #game {
       padding: 0;
       align-items: center;
+      background: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      #game { background: #1c1c1e; }
     }
     /* ナビゲーション */
     .game-nav {
@@ -3069,35 +3073,7 @@ function drawBackground() {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
 
-  // グリッドサイズ: 画面の短辺を9分割
-  const size = Math.max(W, H);
-  const cell = size / 9;
-  const offsetX = (W - size) / 2;
-  const offsetY = (H - size) / 2;
-
-  // ② 9×9 グリッド（細線・超薄）
-  ctx.strokeStyle = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let i = 0; i <= 9; i++) {
-    const x = offsetX + i * cell, y = offsetY + i * cell;
-    ctx.moveTo(x, 0); ctx.lineTo(x, H);
-    ctx.moveTo(0, y); ctx.lineTo(W, y);
-  }
-  ctx.stroke();
-
-  // ③ 3×3 ブロック強調（やや太・薄）
-  ctx.strokeStyle = dark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.08)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  for (let i = 0; i <= 3; i++) {
-    const x = offsetX + i * cell * 3, y = offsetY + i * cell * 3;
-    ctx.moveTo(x, 0); ctx.lineTo(x, H);
-    ctx.moveTo(0, y); ctx.lineTo(W, y);
-  }
-  ctx.stroke();
-
-  // ④ 微細ノイズ（高級感・バンディング防止）
+  // ② 微細ノイズ（高級感・バンディング防止）
   const imgData = ctx.getImageData(0, 0, W * dpr, H * dpr);
   const data = imgData.data;
   for (let i = 0; i < data.length; i += 4) {
