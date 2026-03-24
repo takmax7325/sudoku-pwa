@@ -1864,6 +1864,27 @@ const POOL_TARGET = 20;
 const puzzlePool = { easy:[], normal:[], hard:[], expert:[], insane:[] };
 const poolGenerating = { easy:false, normal:false, hard:false, expert:false, insane:false };
 
+/* --- localStorage 永続化 --- */
+function savePool() {
+  try { localStorage.setItem('sudoku_pool', JSON.stringify(puzzlePool)); } catch(e) {}
+}
+function loadPool() {
+  try {
+    const raw = localStorage.getItem('sudoku_pool');
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    const diffs = ['easy','normal','hard','expert','insane'];
+    let loaded = false;
+    diffs.forEach(d => {
+      if (Array.isArray(data[d]) && data[d].length > 0) {
+        puzzlePool[d] = data[d];
+        loaded = true;
+      }
+    });
+    return loaded;
+  } catch(e) { return false; }
+}
+
 function poolReadyCount(d) {
   return puzzlePool[d].filter(e => !e.completed).length;
 }
@@ -1898,18 +1919,19 @@ async function refillPool(d) {
   }
   poolGenerating[d] = false;
   updatePoolUI(d);
+  savePool();
 }
 
 async function regenerateDiff(d) {
   if (poolGenerating[d]) return;
   puzzlePool[d] = [];
+  savePool();
   updatePoolUI(d);
   await refillPool(d);
 }
 
 function startFromPool(d, idx) {
   if (idx === undefined) {
-    // 最初の未クリア問題を選択
     idx = puzzlePool[d].findIndex(e => !e.completed);
     if (idx === -1) return;
   }
@@ -1925,6 +1947,7 @@ function markPoolCompleted() {
   if (idx >= 0 && puzzlePool[d] && puzzlePool[d][idx]) {
     puzzlePool[d][idx].completed = true;
     updatePoolUI(d);
+    savePool();
   }
 }
 
@@ -1979,7 +2002,14 @@ function updatePuzzleMenuBadge() {
 
 async function initPool() {
   const diffs = ['easy','normal','hard','expert','insane'];
-  diffs.forEach(d => refillPool(d));
+  const hadSaved = loadPool();
+  if (hadSaved) {
+    // 保存済みプールを復元 → UIを更新するだけ
+    diffs.forEach(d => updatePoolUI(d));
+  } else {
+    // 初回起動 → 全難易度を生成
+    diffs.forEach(d => refillPool(d));
+  }
 }
 
 /* ================================================================
