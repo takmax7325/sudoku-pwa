@@ -2520,8 +2520,17 @@ function updateContinueBtn() {
       if (card) card.onclick = null;
     } else {
       btn.classList.remove('show');
-      // カード全体クリックを復元
-      if (card) card.onclick = ()=>startFromPool(d);
+      // カード全体クリックを復元（進行中ゲームがある場合は確認ダイアログ）
+      if (card) card.onclick = () => {
+        const hasActive = (state.status==='playing'||state.status==='paused') && state.puzzle;
+        if (hasActive) {
+          const name = DIFFICULTIES[state.difficulty].name;
+          if (!confirm(`${name}の問題が進行中です。\n別の問題を開始しますか？`)) return;
+          state.puzzle = null; state.status = 'idle';
+          saveGame(); updateContinueBtn();
+        }
+        startFromPool(d);
+      };
     }
   });
 }
