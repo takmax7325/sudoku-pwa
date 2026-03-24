@@ -161,8 +161,8 @@
     }
     .game-nav {
       width: 100%; display: flex; align-items: center; justify-content: space-between;
-      padding: 8px 16px;
-      padding-top: max(8px, env(safe-area-inset-top));
+      padding: 4px 12px;
+      padding-top: max(4px, env(safe-area-inset-top));
       flex-shrink: 0;
     }
     .nav-btn {
@@ -176,37 +176,39 @@
     /* タイマー */
     .timer-area {
       width: 100%; display: flex; align-items: center;
-      padding: 0 20px 8px; flex-shrink: 0;
+      padding: 0 16px 4px; flex-shrink: 0;
     }
-    .timer-est { font-size: 12px; color: var(--text2); line-height: 1.4; width: 68px; }
+    .timer-est { font-size: 11px; color: var(--text2); line-height: 1.3; width: 60px; visibility: hidden; }
     .timer-center { flex: 1; text-align: center; }
     .timer-value {
-      font-size: 44px; font-weight: 900; letter-spacing: -1px;
+      font-size: 34px; font-weight: 900; letter-spacing: -1px;
       font-variant-numeric: tabular-nums;
       transition: color .3s;
+      cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px;
     }
+    .timer-value:active { opacity: 0.7; }
+    .timer-pause-icon { font-size: 16px; opacity: 0.6; }
     .timer-badge {
-      display: inline-block; padding: 2px 12px; border-radius: 20px;
-      font-size: 12px; font-weight: 600; color: #fff; margin-top: 2px;
+      display: inline-block; padding: 1px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 600; color: #fff; margin-top: 1px;
     }
-    .timer-mistakes { width: 68px; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
-    .timer-mistakes span { font-size: 11px; color: var(--text2); }
-    .mistake-dots { display: flex; gap: 4px; }
-    .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bg3); transition: background .3s; }
+    .timer-mistakes { display: none; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bg3); transition: background .3s; }
     .dot.active { background: var(--red); }
 
     /* ボード */
     .board-wrap {
       flex: 1; width: 100%; display: flex; align-items: center; justify-content: center;
-      padding: 0 12px; min-height: 0;
+      padding: 0 4px; min-height: 0;
     }
     .board {
       display: grid; grid-template-columns: repeat(9, 1fr);
       border: 2px solid var(--line-bold);
-      border-radius: 12px; overflow: hidden;
+      border-radius: 10px; overflow: hidden;
       box-shadow: var(--shadow);
       aspect-ratio: 1;
-      width: min(calc(100vw - 24px), calc(100dvh - 340px));
+      width: min(calc(100vw - 8px), calc(100dvh - 240px));
     }
     .cell {
       aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
@@ -254,10 +256,10 @@
     }
 
     /* 入力パッド */
-    .numpad-area { width: 100%; padding: 10px 16px; flex-shrink: 0; }
+    .numpad-area { width: 100%; padding: 6px 12px; flex-shrink: 0; }
     .numpad {
       display: grid; grid-template-columns: repeat(9, 1fr);
-      gap: 6px; margin-bottom: 12px;
+      gap: 5px; margin-bottom: 8px;
     }
     .num-btn {
       aspect-ratio: 1; border-radius: 50%; border: none;
@@ -533,7 +535,7 @@
   <div class="timer-area">
     <div class="timer-est" id="timer-est"></div>
     <div class="timer-center">
-      <div class="timer-value" id="timer-val">0:00</div>
+      <div class="timer-value" id="timer-val" onclick="toggleTimerPause()">0:00<span class="timer-pause-icon" id="pause-icon" style="display:none">⏸</span></div>
       <div class="timer-badge" id="diff-badge">ふつう</div>
     </div>
     <div class="timer-mistakes">
@@ -1433,6 +1435,7 @@ function pauseGame() {
   state.status='paused';
   stopTimer();
   document.getElementById('pause-overlay').classList.add('show');
+  document.getElementById('pause-icon').style.display='inline';
   haptic('light');
   saveGame();
 }
@@ -1440,9 +1443,15 @@ function pauseGame() {
 function resumeGame() {
   if (state.status!=='paused') return;
   document.getElementById('pause-overlay').classList.remove('show');
+  document.getElementById('pause-icon').style.display='none';
   state.status='playing';
   startTimer();
   haptic('light');
+}
+
+function toggleTimerPause() {
+  if (state.status==='playing') pauseGame();
+  else if (state.status==='paused') resumeGame();
 }
 
 function shakeCell(idx) {
