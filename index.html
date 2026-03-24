@@ -79,6 +79,7 @@
       flex: 1; min-height: 0;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
+      padding-bottom: calc(80px + env(safe-area-inset-bottom));
       width: 100%;
     }
 
@@ -185,7 +186,16 @@
       font-size: 18px; color: var(--text); flex-shrink: 0;
     }
 
-    /* ツールピル（上部コントロール） */
+    /* ツールピル（下部コントロールバー） */
+    .tool-pill-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg);
+      border-top: 1px solid var(--bg3);
+      padding: 8px 16px;
+      padding-bottom: max(12px, env(safe-area-inset-bottom));
+      z-index: 100;
+    }
     .tool-pill {
       display: flex; align-items: center;
       background: var(--bg2);
@@ -672,27 +682,6 @@
 <div id="game" class="screen">
   <div class="game-nav">
     <button class="nav-btn" onclick="goHome()">‹</button>
-    <div class="tool-pill">
-      <button class="tool-pill-btn" id="tp-undo" onclick="doUndo()" disabled>
-        <span class="tool-pill-icon">↩</span>
-        <span class="tool-pill-label">もどす</span>
-      </button>
-      <div class="tool-pill-sep"></div>
-      <button class="tool-pill-btn" onclick="eraseCell()">
-        <span class="tool-pill-icon">✕</span>
-        <span class="tool-pill-label">削除</span>
-      </button>
-      <div class="tool-pill-sep"></div>
-      <button class="tool-pill-btn" onclick="requestHint()">
-        <span class="tool-pill-icon">💡</span>
-        <span class="tool-pill-label">ヒント</span>
-      </button>
-      <div class="tool-pill-sep"></div>
-      <button class="tool-pill-btn" onclick="resetTimer()">
-        <span class="tool-pill-icon">↺</span>
-        <span class="tool-pill-label">リセット</span>
-      </button>
-    </div>
     <div style="position:relative">
       <button class="puzzle-menu-btn" onclick="togglePuzzleMenu()">
         ☰
@@ -719,6 +708,29 @@
     </div>
     <div class="numpad-area">
       <div class="numpad" id="numpad"></div>
+    </div>
+  </div>
+  <div class="tool-pill-bar">
+    <div class="tool-pill">
+      <button class="tool-pill-btn" id="tp-undo" onclick="doUndo()" disabled>
+        <span class="tool-pill-icon">↩</span>
+        <span class="tool-pill-label">もどす</span>
+      </button>
+      <div class="tool-pill-sep"></div>
+      <button class="tool-pill-btn" onclick="eraseCell()">
+        <span class="tool-pill-icon">✕</span>
+        <span class="tool-pill-label">削除</span>
+      </button>
+      <div class="tool-pill-sep"></div>
+      <button class="tool-pill-btn" onclick="requestHint()">
+        <span class="tool-pill-icon">💡</span>
+        <span class="tool-pill-label">ヒント</span>
+      </button>
+      <div class="tool-pill-sep"></div>
+      <button class="tool-pill-btn" onclick="resetTimer()">
+        <span class="tool-pill-icon">↺</span>
+        <span class="tool-pill-label">リセット</span>
+      </button>
     </div>
   </div>
 </div>
