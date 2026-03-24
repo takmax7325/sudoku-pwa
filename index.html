@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="数独" />
-  <meta name="description" content="プロ仕様の数独アプリ。5段階難易度・ヒント機能・デイリーチャレンジ対応。" />
+  <meta name="description" content="プロ仕様の数独アプリ。5段階難易度・ヒント機能対応。" />
   <link rel="manifest" href="manifest.json" />
   <title>数独 — Sudoku</title>
 
@@ -100,27 +100,6 @@
       font-size: 18px; color: var(--text);
       box-shadow: var(--shadow-sm);
     }
-
-    /* デイリーカード */
-    .daily-card {
-      background: var(--bg2);
-      border-radius: var(--radius);
-      padding: 16px;
-      box-shadow: var(--shadow);
-      cursor: pointer;
-      transition: transform .15s var(--ease);
-      display: flex; align-items: center; gap: 14px;
-    }
-    .daily-card:active { transform: scale(0.97); }
-    .daily-icon {
-      width: 50px; height: 50px; border-radius: 12px;
-      background: linear-gradient(135deg, #ff9500, #ff6b00);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px; flex-shrink: 0;
-    }
-    .daily-info h3 { font-size: 16px; font-weight: 700; }
-    .daily-info p  { font-size: 13px; color: var(--text2); margin-top: 2px; }
-    .daily-chevron { margin-left: auto; color: var(--text3); font-size: 14px; }
 
     /* 難易度グリッド */
     .section-label {
@@ -702,16 +681,6 @@
       <div class="home-subtitle">SUDOKU</div>
     </div>
     <button class="import-btn" onclick="openImport()" title="インポート">⬇️</button>
-  </div>
-
-  <!-- デイリーチャレンジ -->
-  <div class="daily-card" onclick="startDaily()">
-    <div class="daily-icon" id="daily-icon">📅</div>
-    <div class="daily-info">
-      <h3>デイリーチャレンジ</h3>
-      <p id="daily-date">今日の問題</p>
-    </div>
-    <div class="daily-chevron">›</div>
   </div>
 
   <!-- 難易度選択 -->
@@ -2016,10 +1985,6 @@ async function initPool() {
    HOME
 ================================================================ */
 function buildHome() {
-  // デイリー日付
-  const fmt=new Intl.DateTimeFormat('ja-JP',{month:'long',day:'numeric',weekday:'short'});
-  document.getElementById('daily-date').textContent=fmt.format(new Date());
-
   // 難易度グリッド
   const grid=document.getElementById('diff-grid');
   grid.innerHTML='';
@@ -2056,10 +2021,6 @@ function updateHomeStats() {
   document.getElementById('stat-best').textContent=normalBest||'---';
   document.getElementById('stat-s').textContent=records.filter(r=>r.score==='S').length;
 
-  // デイリー完了チェック
-  const todayKey=getTodayKey();
-  const doneToday=records.some(r=>r.dailyKey===todayKey);
-  document.getElementById('daily-icon').textContent=doneToday?'✅':'📅';
 }
 
 function getBestTime(difficulty) {
@@ -2073,14 +2034,9 @@ function saveRecord() {
   records.unshift({
     difficulty:state.difficulty, elapsed:state.elapsed,
     hints:state.hints, score:calcScore(),
-    date:new Date().toISOString(), dailyKey:getTodayKey()
+    date:new Date().toISOString()
   });
   saveRecords(records.slice(0,200));
-}
-
-function getTodayKey() {
-  const d=new Date();
-  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
 }
 
 /* ================================================================
@@ -2119,22 +2075,6 @@ async function startNewGame(difficulty, puzzle=null) {
   buildBoard(); renderBoard(); renderTimer(); renderTimerState();
   updatePuzzleMenuBadge();
   document.getElementById('loading').classList.remove('show');
-}
-
-function getMostPlayedDifficulty() {
-  const records=loadRecords();
-  if (!records.length) return 'normal';
-  const counts={easy:0,normal:0,hard:0,expert:0,insane:0};
-  records.forEach(r=>{ if (counts[r.difficulty]!==undefined) counts[r.difficulty]++; });
-  return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0][0];
-}
-
-async function startDaily() {
-  const diff=getMostPlayedDifficulty();
-  const seed=parseInt(getTodayKey());
-  document.getElementById('loading').classList.add('show');
-  const p = await generatePuzzle(diff, seed);
-  startNewGame(diff, p);
 }
 
 /* ================================================================
@@ -2231,7 +2171,6 @@ if ('serviceWorker' in navigator) {
 ================================================================ */
 function handleUrlParams() {
   const params=new URLSearchParams(location.search);
-  if (params.get('daily')==='1') { setTimeout(startDaily, 300); return true; }
   const diff=params.get('difficulty');
   if (diff&&DIFFICULTIES[diff]) { setTimeout(()=>startNewGame(diff), 300); return true; }
   return false;
