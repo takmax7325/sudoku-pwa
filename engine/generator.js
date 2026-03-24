@@ -129,15 +129,19 @@ async function generateEasyFast(rng) {
   const solution = generateFullSolution(rng);
   const puzzle = [...solution];
   const indices = shuffle(Array.from({ length: 81 }, (_, i) => i), rng);
+  let clues = 81;
 
   for (let i = 0; i < indices.length; i++) {
+    if (clues <= DIFF_MIN_CLUES.easy) break; // ヒント数の下限で停止
     if (i % 20 === 19) await new Promise(r => setTimeout(r, 0));
     const idx = indices[i];
     const backup = puzzle[idx];
     puzzle[idx] = 0;
+    clues--;
     // 一意解 かつ ナケッドシングルで完全に解ける場合のみ削除を維持
     if (!hasUniqueSolution(puzzle) || !_fastNakedSingle(puzzle)) {
       puzzle[idx] = backup;
+      clues++;
     }
   }
   return { grid: puzzle, solution };
