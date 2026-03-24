@@ -108,7 +108,9 @@
     .home-subtitle { font-size: 12px; font-weight: 600; letter-spacing: 4px; color: var(--text2); }
     .import-btn {
       width: 40px; height: 40px; border-radius: 50%;
-      background: var(--bg2); border: none; cursor: pointer;
+      background: rgba(255,255,255,0.45);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      border: none; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       font-size: 18px; color: var(--text);
       box-shadow: var(--shadow-sm);
@@ -143,7 +145,7 @@
     .diff-card-remaining {
       position: absolute; top: 14px; right: 14px;
       display: flex; flex-direction: column; align-items: center;
-      background: var(--bg3); border-radius: 12px;
+      background: rgba(255,255,255,0.35); border-radius: 12px;
       padding: 5px 10px; gap: 1px;
     }
     .diff-card-remaining-num {
