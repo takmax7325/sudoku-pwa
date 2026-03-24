@@ -148,26 +148,20 @@
     .diff-card-bar {
       height: 3px; border-radius: 2px; margin-top: 10px;
     }
-    /* 問題に戻るボタン */
-    .continue-btn {
+    /* 問題に戻るボタン（カード内） */
+    .diff-card-continue-btn {
       display: none; width: 100%;
-      padding: 14px 20px;
+      margin-top: 8px; padding: 7px 8px;
       background: var(--accent); color: #fff;
-      border: none; border-radius: var(--radius);
-      font-size: 16px; font-weight: 700; font-family: var(--font);
-      cursor: pointer; letter-spacing: 0.3px;
-      align-items: center; justify-content: center; gap: 8px;
+      border: none; border-radius: 8px;
+      font-size: 12px; font-weight: 700; font-family: var(--font);
+      cursor: pointer;
+      align-items: center; justify-content: center; gap: 4px;
       transition: opacity .15s, transform .1s var(--spring);
       -webkit-tap-highlight-color: transparent;
-      box-shadow: 0 4px 16px rgba(52,120,246,0.3);
     }
-    .continue-btn.show { display: flex; }
-    .continue-btn:active { opacity: 0.85; transform: scale(0.97); }
-    .continue-diff-badge {
-      font-size: 12px; font-weight: 600; opacity: 0.85;
-      background: rgba(255,255,255,0.2); border-radius: 6px;
-      padding: 2px 7px;
-    }
+    .diff-card-continue-btn.show { display: flex; }
+    .diff-card-continue-btn:active { opacity: 0.85; transform: scale(0.95); }
 
     /* プールUI */
     .diff-card-pool {
@@ -663,12 +657,6 @@
     </div>
     <div class="daily-chevron">›</div>
   </div>
-
-  <!-- 問題に戻る -->
-  <button class="continue-btn" id="continue-btn" onclick="resumeCurrentGame()">
-    ▶ 問題に戻る
-    <span class="continue-diff-badge" id="continue-diff-badge"></span>
-  </button>
 
   <!-- 難易度選択 -->
   <div class="section-label">難易度を選択</div>
@@ -1736,17 +1724,17 @@ function goHome() {
 }
 
 function updateContinueBtn() {
-  const btn = document.getElementById('continue-btn');
-  const badge = document.getElementById('continue-diff-badge');
-  if (!btn) return;
-  const active = state.status==='idle'||state.status==='playing'||state.status==='paused';
-  if (active && state.puzzle) {
-    btn.classList.add('show');
-    const info = DIFFICULTIES[state.difficulty];
-    if (badge) badge.textContent = info ? info.name : '';
-  } else {
-    btn.classList.remove('show');
-  }
+  const diffs=['easy','normal','hard','expert','insane'];
+  const active = (state.status==='idle'||state.status==='playing'||state.status==='paused') && state.puzzle;
+  diffs.forEach(d=>{
+    const btn = document.getElementById('continue-btn-'+d);
+    if (!btn) return;
+    if (active && state.difficulty===d) {
+      btn.classList.add('show');
+    } else {
+      btn.classList.remove('show');
+    }
+  });
 }
 
 function resumeCurrentGame() {
@@ -1887,6 +1875,7 @@ function buildHome() {
       ${best?`<div class="diff-card-best">🏅 ${best}</div>`:''}
       <div class="diff-card-pool" id="pool-count-${d}">準備中…</div>
       <div class="diff-card-bar" style="background:${info.gradient}"></div>
+      <button class="diff-card-continue-btn" id="continue-btn-${d}" onclick="event.stopPropagation();resumeCurrentGame()">▶ 問題に戻る</button>
       <button class="diff-card-gen-btn" id="gen-btn-${d}" onclick="event.stopPropagation();regenerateDiff('${d}')" disabled>🔄 新しい問題を生成</button>
     `;
     card.onclick=()=>startFromPool(d);
@@ -1894,6 +1883,7 @@ function buildHome() {
   });
 
   updateHomeStats();
+  updateContinueBtn();
 }
 
 function updateHomeStats() {
