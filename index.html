@@ -821,29 +821,48 @@ function isGridValid(grid) {
   return true;
 }
 
-function countSolutions(grid, limit=2, nodeLimit=30000) {
+// ビットマスクを使った高速ソルバー
+function countSolutions(grid, limit=2, nodeLimit=8000) {
   let count = 0, nodes = 0;
-  function bt(g) {
-    if (count >= limit || nodes > nodeLimit) return;
+  const rm = new Uint16Array(9), cm = new Uint16Array(9), bm = new Uint16Array(9);
+  const g = new Uint8Array(81);
+  for (let i = 0; i < 81; i++) {
+    g[i] = grid[i];
+    if (grid[i]) {
+      const bit = 1 << grid[i], r = ~~(i/9), c = i%9;
+      rm[r] |= bit; cm[c] |= bit; bm[~~(r/3)*3+~~(c/3)] |= bit;
+    }
+  }
+  function bc(n) { // popcount
+    n -= (n>>1)&0x55555555; n=(n&0x33333333)+((n>>2)&0x33333333);
+    return (((n+(n>>4))&0x0F0F0F0F)*0x01010101)>>24;
+  }
+  function bt() {
+    if (count>=limit||nodes>=nodeLimit) return;
     nodes++;
     let best=-1, bestCnt=10;
     for (let i=0;i<81;i++) {
       if (g[i]) continue;
-      let cnt=0, r=~~(i/9), c=i%9;
-      for (let v=1;v<=9;v++) if (isPlacementValid(g,r,c,v)) cnt++;
-      if (!cnt) return;
-      if (cnt<bestCnt) { bestCnt=cnt; best=i; }
+      const r=~~(i/9),c=i%9;
+      const avail=(~(rm[r]|cm[c]|bm[~~(r/3)*3+~~(c/3)]))&0x3FE;
+      if (!avail) return;
+      const cnt=bc(avail);
+      if (cnt<bestCnt) { bestCnt=cnt; best=i; if(cnt===1) break; }
     }
     if (best===-1) { count++; return; }
-    const r=~~(best/9),c=best%9;
-    for (let v=1;v<=9;v++) {
-      if (isPlacementValid(g,r,c,v)) {
-        g[best]=v; bt([...g]); g[best]=0;
-        if (count>=limit) return;
-      }
+    const r=~~(best/9),c=best%9,b=~~(r/3)*3+~~(c/3);
+    let avail=(~(rm[r]|cm[c]|bm[b]))&0x3FE;
+    while (avail) {
+      const bit=avail&-avail; avail^=bit;
+      g[best]=31-Math.clz32(bit);
+      rm[r]|=bit; cm[c]|=bit; bm[b]|=bit;
+      bt();
+      rm[r]^=bit; cm[c]^=bit; bm[b]^=bit;
+      if (count>=limit) break;
     }
+    g[best]=0;
   }
-  bt([...grid]);
+  bt();
   return count;
 }
 
