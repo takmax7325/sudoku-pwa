@@ -62,11 +62,18 @@
     html, body {
       height: 100%; width: 100%;
       font-family: var(--font);
-      background: url('bg.jpg') center center / cover no-repeat fixed;
+      background: transparent;
       color: var(--text);
       overflow: hidden;
       -webkit-tap-highlight-color: transparent;
       user-select: none;
+    }
+    #bg-image {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      width: 100%; height: 100%;
+      z-index: -2;
+      background: url('bg.jpg') center center / cover no-repeat;
     }
 
     /* ============================================================
@@ -693,6 +700,7 @@
   </style>
 </head>
 <body>
+<div id="bg-image"></div>
 <canvas id="bg-canvas"></canvas>
 
 <!-- ===== HOME SCREEN ===== -->
