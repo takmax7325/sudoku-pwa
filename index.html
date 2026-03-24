@@ -2590,7 +2590,8 @@ function loadPool() {
     let loaded = false;
     diffs.forEach(d => {
       if (Array.isArray(data[d]) && data[d].length > 0) {
-        puzzlePool[d] = data[d];
+        // POOL_TARGET超過分をトリム（古いデータ対策）
+        puzzlePool[d] = data[d].slice(0, POOL_TARGET);
         loaded = true;
       }
     });
