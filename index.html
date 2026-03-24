@@ -93,7 +93,10 @@
     }
     .home-header {
       display: flex; align-items: flex-end; justify-content: space-between;
-      padding-top: 12px;
+      padding-top: 12px; padding-bottom: 8px;
+      position: sticky; top: 0;
+      background: var(--bg);
+      z-index: 10;
     }
     .home-title { font-size: 38px; font-weight: 900; letter-spacing: -1px; }
     .home-subtitle { font-size: 12px; font-weight: 600; letter-spacing: 4px; color: var(--text2); }
