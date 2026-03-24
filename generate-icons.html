@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<!-- アイコン生成ツール（開発用）：ブラウザで開いてボタンを押すと icons/ フォルダ用の画像を生成できます -->
+<html lang="ja">
+<head><meta charset="UTF-8"><title>Icon Generator</title></head>
+<body style="font-family:sans-serif;padding:20px;">
+  <h2>数独アイコン生成</h2>
+  <p>以下のボタンを押してアイコンをダウンロードし、<code>icons/</code>フォルダに保存してください。</p>
+  <button onclick="generate(192)">192x192 を生成</button>
+  <button onclick="generate(512)">512x512 を生成</button>
+  <div id="preview"></div>
+  <script>
+    function generate(size) {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      // 背景
+      const grad = ctx.createLinearGradient(0,0,size,size);
+      grad.addColorStop(0,'#1a5fd8'); grad.addColorStop(1,'#0a9fcc');
+      ctx.fillStyle = grad;
+      ctx.roundRect(0,0,size,size,size*0.2);
+      ctx.fill();
+
+      // グリッド
+      const pad = size*0.12, cellSize=(size-pad*2)/9;
+      ctx.strokeStyle='rgba(255,255,255,0.3)';
+      ctx.lineWidth=size*0.004;
+      for (let i=0;i<=9;i++) {
+        ctx.lineWidth = i%3===0 ? size*0.008 : size*0.004;
+        ctx.beginPath();
+        ctx.moveTo(pad+i*cellSize, pad); ctx.lineTo(pad+i*cellSize, size-pad);
+        ctx.moveTo(pad, pad+i*cellSize); ctx.lineTo(size-pad, pad+i*cellSize);
+        ctx.stroke();
+      }
+
+      // 数字（ランダムに5つ表示）
+      const nums=[['1',1,1],['5',4,2],['9',7,5],['3',2,6],['7',6,3]];
+      ctx.fillStyle='rgba(255,255,255,0.9)';
+      ctx.font=`bold ${size*0.09}px -apple-system, sans-serif`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      nums.forEach(([n,c,r])=>{
+        ctx.fillText(n, pad+(c+0.5)*cellSize, pad+(r+0.5)*cellSize);
+      });
+
+      const link=document.createElement('a');
+      link.download=`icon-${size}.png`;
+      link.href=canvas.toDataURL();
+      link.click();
+      document.getElementById('preview').appendChild(canvas);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,1838 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#ffffff" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="数独" />
+  <meta name="description" content="プロ仕様の数独アプリ。5段階難易度・ヒント機能・デイリーチャレンジ対応。" />
+  <link rel="manifest" href="manifest.json" />
+  <title>数独 — Sudoku</title>
+
+  <style>
+    /* ============================================================
+       DESIGN SYSTEM
+    ============================================================ */
+    :root {
+      --accent:        #3478F6;
+      --accent-light:  rgba(52,120,246,0.15);
+      --accent-dark:   #1a5fd8;
+      --bg:            #ffffff;
+      --bg2:           #f2f2f7;
+      --bg3:           #e5e5ea;
+      --text:          #1c1c1e;
+      --text2:         #8e8e93;
+      --text3:         #aeaeb2;
+      --line:          #c6c6c8;
+      --line-bold:     #636366;
+      --red:           #ff3b30;
+      --orange:        #ff9500;
+      --green:         #30d158;
+      --gold:          #ffd60a;
+      --purple:        #8e44ad;
+      --purple-grad:   linear-gradient(135deg, #8e44ad, #c0392b);
+      --radius:        14px;
+      --radius-sm:     10px;
+      --shadow:        0 4px 16px rgba(0,0,0,0.08);
+      --shadow-sm:     0 2px 8px rgba(0,0,0,0.05);
+      --spring:        cubic-bezier(0.34,1.56,0.64,1);
+      --ease:          cubic-bezier(0.4,0,0.2,1);
+      --font:          -apple-system, 'SF Pro Rounded', 'Helvetica Neue', sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:   #1c1c1e;
+        --bg2:  #2c2c2e;
+        --bg3:  #3a3a3c;
+        --text: #f2f2f7;
+        --text2:#aeaeb2;
+        --text3:#636366;
+        --line: #48484a;
+        --line-bold:#8e8e93;
+        --shadow: 0 4px 16px rgba(0,0,0,0.35);
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%; width: 100%;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    /* ============================================================
+       SCREENS
+    ============================================================ */
+    .screen { display: none; flex-direction: column; height: 100dvh; width: 100%; }
+    .screen.active { display: flex; }
+
+    /* ============================================================
+       HOME SCREEN
+    ============================================================ */
+    #home {
+      padding: env(safe-area-inset-top, 16px) 20px env(safe-area-inset-bottom, 20px);
+      overflow-y: auto;
+      gap: 24px;
+    }
+    .home-header {
+      display: flex; align-items: flex-end; justify-content: space-between;
+      padding-top: 12px;
+    }
+    .home-title { font-size: 38px; font-weight: 900; letter-spacing: -1px; }
+    .home-subtitle { font-size: 12px; font-weight: 600; letter-spacing: 4px; color: var(--text2); }
+    .import-btn {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--bg2); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; color: var(--text);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* デイリーカード */
+    .daily-card {
+      background: var(--bg2);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      transition: transform .15s var(--ease);
+      display: flex; align-items: center; gap: 14px;
+    }
+    .daily-card:active { transform: scale(0.97); }
+    .daily-icon {
+      width: 50px; height: 50px; border-radius: 12px;
+      background: linear-gradient(135deg, #ff9500, #ff6b00);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+    }
+    .daily-info h3 { font-size: 16px; font-weight: 700; }
+    .daily-info p  { font-size: 13px; color: var(--text2); margin-top: 2px; }
+    .daily-chevron { margin-left: auto; color: var(--text3); font-size: 14px; }
+
+    /* 難易度グリッド */
+    .section-label {
+      font-size: 14px; font-weight: 600; color: var(--text2);
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .diff-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    }
+    .diff-card {
+      background: var(--bg2); border-radius: var(--radius); padding: 16px;
+      box-shadow: var(--shadow-sm); cursor: pointer;
+      transition: transform .15s var(--ease), box-shadow .15s;
+      border: 2px solid transparent; position: relative; overflow: hidden;
+    }
+    .diff-card:active { transform: scale(0.96); }
+    .diff-card.insane { grid-column: 1/-1; }
+    .diff-card-icon { font-size: 24px; margin-bottom: 8px; }
+    .diff-card-name { font-size: 16px; font-weight: 700; }
+    .diff-card-time { font-size: 12px; color: var(--text2); margin-top: 2px; }
+    .diff-card-best {
+      position: absolute; top: 12px; right: 12px;
+      font-size: 11px; color: var(--text3); font-variant-numeric: tabular-nums;
+    }
+    .diff-card-bar {
+      height: 3px; border-radius: 2px; margin-top: 10px;
+    }
+
+    /* 統計 */
+    .stats-row { display: flex; gap: 12px; }
+    .stat-card {
+      flex: 1; background: var(--bg2); border-radius: var(--radius-sm);
+      padding: 14px 10px; text-align: center; box-shadow: var(--shadow-sm);
+    }
+    .stat-icon { font-size: 20px; }
+    .stat-val  { font-size: 20px; font-weight: 800; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+    .stat-label{ font-size: 11px; color: var(--text2); }
+
+    /* ============================================================
+       GAME SCREEN
+    ============================================================ */
+    #game {
+      padding: 0;
+      align-items: center;
+    }
+    .game-nav {
+      width: 100%; display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 16px;
+      padding-top: max(8px, env(safe-area-inset-top));
+      flex-shrink: 0;
+    }
+    .nav-btn {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--bg2); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; color: var(--text);
+    }
+    .nav-title { font-size: 18px; font-weight: 700; }
+
+    /* タイマー */
+    .timer-area {
+      width: 100%; display: flex; align-items: center;
+      padding: 0 20px 8px; flex-shrink: 0;
+    }
+    .timer-est { font-size: 12px; color: var(--text2); line-height: 1.4; width: 68px; }
+    .timer-center { flex: 1; text-align: center; }
+    .timer-value {
+      font-size: 44px; font-weight: 900; letter-spacing: -1px;
+      font-variant-numeric: tabular-nums;
+      transition: color .3s;
+    }
+    .timer-badge {
+      display: inline-block; padding: 2px 12px; border-radius: 20px;
+      font-size: 12px; font-weight: 600; color: #fff; margin-top: 2px;
+    }
+    .timer-mistakes { width: 68px; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+    .timer-mistakes span { font-size: 11px; color: var(--text2); }
+    .mistake-dots { display: flex; gap: 4px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bg3); transition: background .3s; }
+    .dot.active { background: var(--red); }
+
+    /* ボード */
+    .board-wrap {
+      flex: 1; width: 100%; display: flex; align-items: center; justify-content: center;
+      padding: 0 12px; min-height: 0;
+    }
+    .board {
+      display: grid; grid-template-columns: repeat(9, 1fr);
+      border: 2px solid var(--line-bold);
+      border-radius: 12px; overflow: hidden;
+      box-shadow: var(--shadow);
+      aspect-ratio: 1;
+      width: min(calc(100vw - 24px), calc(100dvh - 340px));
+    }
+    .cell {
+      aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+      font-size: clamp(14px, 4vw, 22px); font-weight: 700;
+      cursor: pointer; position: relative; overflow: hidden;
+      transition: background .12s var(--ease);
+      border-right: 0.5px solid var(--line);
+      border-bottom: 0.5px solid var(--line);
+    }
+    .cell:nth-child(3n) { border-right: 1.5px solid var(--line-bold); }
+    .cell:nth-child(9n) { border-right: none; }
+    .cell:nth-child(n+19):nth-child(-n+27) { border-bottom: 1.5px solid var(--line-bold); }
+    .cell:nth-child(n+46):nth-child(-n+54) { border-bottom: 1.5px solid var(--line-bold); }
+    .cell:nth-child(n+73)                  { border-bottom: none; }
+
+    /* セル状態 */
+    .cell.given     { color: var(--text); }
+    .cell.filled    { color: var(--accent); }
+    .cell.error     { color: var(--red); background: rgba(255,59,48,0.12); }
+    .cell.hint-val  { color: var(--orange); }
+    .cell.correct   { color: var(--green); }
+    .cell.selected  { background: rgba(52,120,246,0.28); }
+    .cell.peer      { background: rgba(52,120,246,0.07); }
+    .cell.same-val  { background: rgba(52,120,246,0.18); }
+    .cell.hint-tgt  { background: rgba(255,214,10,0.38); }
+    .cell.hint-rel  { background: rgba(255,214,10,0.15); }
+    .cell:active:not(.given) { background: rgba(52,120,246,0.22); }
+
+    /* shake */
+    @keyframes shake {
+      0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)}
+      40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)}
+    }
+    .cell.shake { animation: shake .4s ease; }
+
+    /* 候補メモ */
+    .candidates {
+      display: grid; grid-template-columns: repeat(3,1fr);
+      width: 100%; height: 100%; padding: 1px;
+    }
+    .cand-num {
+      display: flex; align-items: center; justify-content: center;
+      font-size: clamp(7px, 1.8vw, 10px); font-weight: 500;
+      color: var(--text2);
+    }
+
+    /* 入力パッド */
+    .numpad-area { width: 100%; padding: 10px 16px; flex-shrink: 0; }
+    .numpad {
+      display: grid; grid-template-columns: repeat(9, 1fr);
+      gap: 6px; margin-bottom: 12px;
+    }
+    .num-btn {
+      aspect-ratio: 1; border-radius: 50%; border: none;
+      background: var(--bg2); color: var(--text);
+      font-size: clamp(14px, 4vw, 20px); font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      box-shadow: var(--shadow-sm); transition: transform .1s var(--spring), background .1s;
+      font-family: var(--font);
+    }
+    .num-btn:active { transform: scale(0.88); }
+    .num-btn.highlighted {
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      color: #fff; box-shadow: 0 4px 12px rgba(52,120,246,0.4);
+    }
+    .num-btn.completed { opacity: 0.3; pointer-events: none; }
+
+    .ctrl-row {
+      display: flex; justify-content: space-around; align-items: center;
+    }
+    .ctrl-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      border: none; background: none; cursor: pointer; color: var(--text);
+    }
+    .ctrl-btn:disabled { opacity: 0.3; pointer-events: none; }
+    .ctrl-icon {
+      width: 44px; height: 36px; border-radius: 10px;
+      background: var(--bg2); display: flex; align-items: center; justify-content: center;
+      font-size: 20px; transition: transform .1s var(--spring);
+    }
+    .ctrl-btn:active .ctrl-icon { transform: scale(0.88); }
+    .ctrl-icon.active { background: var(--accent-light); color: var(--accent); }
+    .ctrl-label { font-size: 11px; color: var(--text2); font-family: var(--font); font-weight: 500; }
+
+    /* ============================================================
+       PAUSE OVERLAY
+    ============================================================ */
+    .pause-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px; z-index: 50;
+      opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    .pause-overlay.show { opacity: 1; pointer-events: all; }
+    .pause-icon { font-size: 64px; }
+    .pause-title { font-size: 24px; font-weight: 800; color: #fff; }
+    .pause-hint  { font-size: 15px; color: rgba(255,255,255,0.7); }
+
+    /* ============================================================
+       HINT SHEET
+    ============================================================ */
+    .hint-sheet {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--bg); border-radius: 24px 24px 0 0;
+      box-shadow: 0 -8px 32px rgba(0,0,0,0.12);
+      transform: translateY(100%); transition: transform .35s var(--spring);
+      z-index: 60; padding: 0 20px;
+      padding-bottom: max(20px, env(safe-area-inset-bottom));
+    }
+    .hint-sheet.show { transform: translateY(0); }
+    .hint-handle {
+      width: 36px; height: 4px; background: var(--bg3); border-radius: 2px;
+      margin: 12px auto 16px;
+    }
+    .hint-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .hint-icon   { font-size: 20px; }
+    .hint-tech   { font-size: 18px; font-weight: 800; flex: 1; }
+    .hint-close  { font-size: 24px; cursor: pointer; color: var(--text3); line-height: 1; }
+    .hint-explanation {
+      font-size: 15px; color: var(--text); line-height: 1.6;
+      background: var(--bg2); border-radius: var(--radius-sm);
+      padding: 12px; margin-bottom: 12px;
+    }
+    .hint-detail { font-size: 13px; color: var(--text2); margin-bottom: 16px; }
+    .hint-btns { display: flex; gap: 10px; }
+    .hint-btn-secondary {
+      flex: 1; height: 50px; border-radius: 14px;
+      border: 1.5px solid var(--accent); background: none;
+      color: var(--accent); font-size: 16px; font-weight: 600;
+      cursor: pointer; font-family: var(--font);
+    }
+    .hint-btn-primary {
+      flex: 1; height: 50px; border-radius: 14px; border: none;
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      color: #fff; font-size: 16px; font-weight: 700;
+      cursor: pointer; font-family: var(--font);
+      box-shadow: 0 4px 12px rgba(52,120,246,0.35);
+    }
+
+    /* backdrop */
+    .sheet-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      z-index: 55; opacity: 0; pointer-events: none; transition: opacity .25s;
+    }
+    .sheet-backdrop.show { opacity: 1; pointer-events: all; }
+
+    /* ============================================================
+       RESULT SCREEN
+    ============================================================ */
+    #result {
+      background: linear-gradient(160deg, #1a5fd8, #0a9fcc);
+      padding: env(safe-area-inset-top, 40px) 24px env(safe-area-inset-bottom, 40px);
+      align-items: center; justify-content: center; gap: 28px;
+      overflow-y: auto;
+    }
+    #result.insane-result {
+      background: var(--purple-grad);
+    }
+    .result-title {
+      font-size: 30px; font-weight: 900; color: #fff;
+      text-align: center; letter-spacing: -0.5px;
+    }
+    .score-badge {
+      width: 120px; height: 120px; border-radius: 50%;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    }
+    .score-emoji { font-size: 28px; line-height: 1; }
+    .score-letter{ font-size: 52px; font-weight: 900; color: #fff; line-height: 1; }
+    .result-time {
+      font-size: 38px; font-weight: 900; color: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+    .result-stats {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%;
+    }
+    .result-stat {
+      background: rgba(255,255,255,0.15); border-radius: var(--radius);
+      padding: 14px; text-align: center;
+    }
+    .result-stat-icon { font-size: 20px; }
+    .result-stat-val  { font-size: 20px; font-weight: 800; color: #fff; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+    .result-stat-lbl  { font-size: 12px; color: rgba(255,255,255,0.7); }
+    .result-btn-again {
+      width: 100%; height: 56px; border-radius: 16px; border: none;
+      background: rgba(255,255,255,0.95); color: var(--accent);
+      font-size: 17px; font-weight: 800; cursor: pointer; font-family: var(--font);
+      transition: transform .1s var(--spring);
+    }
+    .result-btn-again:active { transform: scale(0.97); }
+    .result-btn-home {
+      width: 100%; height: 48px; border-radius: 14px; border: none;
+      background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.9);
+      font-size: 16px; font-weight: 600; cursor: pointer; font-family: var(--font);
+      transition: transform .1s var(--spring);
+    }
+    .result-btn-home:active { transform: scale(0.97); }
+
+    /* confetti */
+    .confetti-wrap {
+      position: fixed; inset: 0; pointer-events: none; z-index: 100; overflow: hidden;
+    }
+    .confetti-piece {
+      position: absolute; top: -10px; border-radius: 2px;
+      animation: confetti-fall linear forwards;
+    }
+    @keyframes confetti-fall {
+      to { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+    }
+
+    /* ============================================================
+       LOADING SPINNER
+    ============================================================ */
+    .loading-overlay {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px; z-index: 200;
+      opacity: 0; pointer-events: none; transition: opacity .25s;
+    }
+    .loading-overlay.show { opacity: 1; pointer-events: all; }
+    .spinner {
+      width: 44px; height: 44px; border-radius: 50%;
+      border: 3px solid var(--bg3);
+      border-top-color: var(--accent);
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 16px; color: var(--text2); font-weight: 600; }
+
+    /* IMPORT SHEET */
+    .import-sheet {
+      position: fixed; inset: 0; background: var(--bg);
+      z-index: 80; display: flex; flex-direction: column;
+      transform: translateY(100%); transition: transform .35s var(--spring);
+      padding: env(safe-area-inset-top, 16px) 0 env(safe-area-inset-bottom, 20px);
+    }
+    .import-sheet.show { transform: translateY(0); }
+    .import-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 16px 12px; border-bottom: 1px solid var(--bg3);
+    }
+    .import-header h2 { font-size: 18px; font-weight: 700; }
+    .import-content { flex: 1; overflow-y: auto; padding: 16px; }
+    .import-input-grid {
+      display: grid; grid-template-columns: repeat(9, 1fr);
+      border: 2px solid var(--line-bold); border-radius: 10px; overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .import-cell {
+      aspect-ratio: 1; border: 0.5px solid var(--line);
+      text-align: center; font-size: 14px; font-weight: 700;
+      background: var(--bg); color: var(--text);
+      font-family: var(--font); border-radius: 0;
+      -webkit-appearance: none;
+    }
+    .import-cell:focus { outline: none; background: var(--accent-light); }
+    .import-submit {
+      width: 100%; height: 52px; border-radius: 14px; border: none;
+      background: var(--accent); color: #fff; font-size: 16px; font-weight: 700;
+      cursor: pointer; font-family: var(--font); margin-top: 8px;
+    }
+    .import-error { color: var(--red); font-size: 13px; margin-top: 8px; min-height: 18px; }
+
+    /* no safe-area fallback */
+    @supports not (padding: env(safe-area-inset-top)) {
+      #home { padding: 16px 20px 20px; }
+      .game-nav { padding: 8px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== HOME SCREEN ===== -->
+<div id="home" class="screen active">
+  <div class="home-header">
+    <div>
+      <div class="home-title">数独</div>
+      <div class="home-subtitle">SUDOKU</div>
+    </div>
+    <button class="import-btn" onclick="openImport()" title="インポート">⬇️</button>
+  </div>
+
+  <!-- デイリーチャレンジ -->
+  <div class="daily-card" onclick="startDaily()">
+    <div class="daily-icon" id="daily-icon">📅</div>
+    <div class="daily-info">
+      <h3>デイリーチャレンジ</h3>
+      <p id="daily-date">今日の問題</p>
+    </div>
+    <div class="daily-chevron">›</div>
+  </div>
+
+  <!-- 難易度選択 -->
+  <div class="section-label">難易度を選択</div>
+  <div class="diff-grid" id="diff-grid"></div>
+
+  <!-- 統計 -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-icon">✅</div>
+      <div class="stat-val" id="stat-total">0</div>
+      <div class="stat-label">クリア数</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">⏱</div>
+      <div class="stat-val" id="stat-best">---</div>
+      <div class="stat-label">ベスト(普通)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">⭐</div>
+      <div class="stat-val" id="stat-s">0</div>
+      <div class="stat-label">Sランク</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== GAME SCREEN ===== -->
+<div id="game" class="screen">
+  <div class="game-nav">
+    <button class="nav-btn" onclick="goHome()">‹</button>
+    <div class="nav-title">数独</div>
+    <button class="nav-btn" onclick="showMenu()">⋯</button>
+  </div>
+  <div class="timer-area">
+    <div class="timer-est" id="timer-est"></div>
+    <div class="timer-center">
+      <div class="timer-value" id="timer-val">0:00</div>
+      <div class="timer-badge" id="diff-badge">ふつう</div>
+    </div>
+    <div class="timer-mistakes">
+      <span>ミス</span>
+      <div class="mistake-dots" id="mistake-dots"></div>
+    </div>
+  </div>
+  <div class="board-wrap">
+    <div class="board" id="board"></div>
+  </div>
+  <div class="numpad-area">
+    <div class="numpad" id="numpad"></div>
+    <div class="ctrl-row">
+      <button class="ctrl-btn" id="btn-undo" onclick="doUndo()">
+        <div class="ctrl-icon">↩</div>
+        <div class="ctrl-label">もとに戻す</div>
+      </button>
+      <button class="ctrl-btn" id="btn-memo" onclick="toggleMemo()">
+        <div class="ctrl-icon" id="memo-icon">✏️</div>
+        <div class="ctrl-label">メモ</div>
+      </button>
+      <button class="ctrl-btn" id="btn-erase" onclick="eraseCell()">
+        <div class="ctrl-icon">✕</div>
+        <div class="ctrl-label">削除</div>
+      </button>
+      <button class="ctrl-btn" onclick="requestHint()">
+        <div class="ctrl-icon">💡</div>
+        <div class="ctrl-label">ヒント</div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== RESULT SCREEN ===== -->
+<div id="result" class="screen">
+  <div class="result-title" id="result-title">クリア！</div>
+  <div class="score-badge" id="score-badge">
+    <div class="score-emoji" id="score-emoji">⭐</div>
+    <div class="score-letter" id="score-letter">A</div>
+  </div>
+  <div class="result-time" id="result-time">0:00</div>
+  <div class="result-stats">
+    <div class="result-stat">
+      <div class="result-stat-icon">⏱</div>
+      <div class="result-stat-val" id="res-time2">0:00</div>
+      <div class="result-stat-lbl">クリアタイム</div>
+    </div>
+    <div class="result-stat">
+      <div class="result-stat-icon">🎯</div>
+      <div class="result-stat-val" id="res-est">---</div>
+      <div class="result-stat-lbl">目安時間</div>
+    </div>
+    <div class="result-stat">
+      <div class="result-stat-icon">💡</div>
+      <div class="result-stat-val" id="res-hints">0</div>
+      <div class="result-stat-lbl">ヒント使用</div>
+    </div>
+    <div class="result-stat">
+      <div class="result-stat-icon">✕</div>
+      <div class="result-stat-val" id="res-mistakes">0</div>
+      <div class="result-stat-lbl">ミス回数</div>
+    </div>
+  </div>
+  <button class="result-btn-again" onclick="playAgain()">もう一度</button>
+  <button class="result-btn-home"  onclick="goHome()">ホームに戻る</button>
+</div>
+
+<!-- Pause Overlay -->
+<div class="pause-overlay" id="pause-overlay" onclick="resumeGame()">
+  <div class="pause-icon">⏸</div>
+  <div class="pause-title">一時停止中</div>
+  <div class="pause-hint">タップして再開</div>
+</div>
+
+<!-- Hint Sheet -->
+<div class="sheet-backdrop" id="hint-backdrop" onclick="dismissHint()"></div>
+<div class="hint-sheet" id="hint-sheet">
+  <div class="hint-handle"></div>
+  <div class="hint-header">
+    <div class="hint-icon">💡</div>
+    <div class="hint-tech" id="hint-tech">Naked Single</div>
+    <div class="hint-close" onclick="dismissHint()">✕</div>
+  </div>
+  <div class="hint-explanation" id="hint-explanation"></div>
+  <div class="hint-detail" id="hint-detail"></div>
+  <div class="hint-btns">
+    <button class="hint-btn-secondary" onclick="dismissHint()">確認のみ</button>
+    <button class="hint-btn-primary" id="hint-apply-btn" onclick="applyHint()">適用する</button>
+  </div>
+</div>
+
+<!-- Import Sheet -->
+<div class="import-sheet" id="import-sheet">
+  <div class="import-header">
+    <h2>問題をインポート</h2>
+    <button class="nav-btn" onclick="closeImport()">✕</button>
+  </div>
+  <div class="import-content">
+    <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">81マスに数字を入力（空きは0か空欄）</p>
+    <div class="import-input-grid" id="import-grid"></div>
+    <select id="import-diff" style="width:100%;height:44px;border-radius:10px;border:1px solid var(--bg3);background:var(--bg2);color:var(--text);font-size:15px;padding:0 12px;margin-bottom:8px;font-family:var(--font)">
+      <option value="easy">かんたん</option>
+      <option value="normal" selected>ふつう</option>
+      <option value="hard">むずかしい</option>
+      <option value="expert">エキスパート</option>
+      <option value="insane">鬼難問</option>
+    </select>
+    <button class="import-submit" onclick="doImport()">インポートしてプレイ</button>
+    <div class="import-error" id="import-error"></div>
+  </div>
+</div>
+
+<!-- Loading -->
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">パズルを生成中...</div>
+</div>
+
+<!-- Confetti -->
+<div class="confetti-wrap" id="confetti"></div>
+
+<script>
+/* ================================================================
+   SUDOKU ENGINE
+================================================================ */
+
+// ---- Validator ----
+function isPlacementValid(grid, row, col, val) {
+  if (val < 1 || val > 9) return false;
+  const idx = row * 9 + col;
+  for (let c = 0; c < 9; c++) { if (c !== col && grid[row*9+c] === val) return false; }
+  for (let r = 0; r < 9; r++) { if (r !== row && grid[r*9+col] === val) return false; }
+  const br = ~~(row/3)*3, bc = ~~(col/3)*3;
+  for (let r = br; r < br+3; r++)
+    for (let c = bc; c < bc+3; c++)
+      if ((r!==row||c!==col) && grid[r*9+c] === val) return false;
+  return true;
+}
+
+function isGridValid(grid) {
+  for (let i = 0; i < 9; i++) {
+    const row=[], col=[], box=[];
+    for (let j = 0; j < 9; j++) {
+      const rv=grid[i*9+j], cv=grid[j*9+i];
+      const br=~~(i/3)*3, bc=(i%3)*3;
+      const bv=grid[(br+~~(j/3))*9+(bc+j%3)];
+      if (rv&&row.includes(rv)) return false; if (rv) row.push(rv);
+      if (cv&&col.includes(cv)) return false; if (cv) col.push(cv);
+      if (bv&&box.includes(bv)) return false; if (bv) box.push(bv);
+    }
+  }
+  return true;
+}
+
+function countSolutions(grid, limit=2) {
+  let count = 0;
+  function bt(g) {
+    if (count >= limit) return;
+    let best=-1, bestCnt=10;
+    for (let i=0;i<81;i++) {
+      if (g[i]) continue;
+      let cnt=0, r=~~(i/9), c=i%9;
+      for (let v=1;v<=9;v++) if (isPlacementValid(g,r,c,v)) cnt++;
+      if (!cnt) return;
+      if (cnt<bestCnt) { bestCnt=cnt; best=i; }
+    }
+    if (best===-1) { count++; return; }
+    const r=~~(best/9),c=best%9;
+    for (let v=1;v<=9;v++) {
+      if (isPlacementValid(g,r,c,v)) {
+        g[best]=v; bt([...g]); g[best]=0;
+        if (count>=limit) return;
+      }
+    }
+  }
+  bt([...grid]);
+  return count;
+}
+
+function hasUniqueSolution(grid) { return countSolutions(grid,2)===1; }
+
+// ---- Generator ----
+function shuffle(arr, rng) {
+  for (let i=arr.length-1;i>0;i--) {
+    const j=Math.floor(rng()*( i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function generateFullSolution(rngFn) {
+  const g = new Array(81).fill(0);
+  function bt() {
+    let best=-1,bestCnt=10;
+    for (let i=0;i<81;i++) {
+      if (g[i]) continue;
+      let cnt=0,r=~~(i/9),c=i%9;
+      for (let v=1;v<=9;v++) if (isPlacementValid(g,r,c,v)) cnt++;
+      if (!cnt) return false;
+      if (cnt<bestCnt) { bestCnt=cnt; best=i; }
+    }
+    if (best===-1) return true;
+    const r=~~(best/9),c=best%9;
+    const nums=shuffle([1,2,3,4,5,6,7,8,9],rngFn);
+    for (const v of nums) {
+      if (isPlacementValid(g,r,c,v)) {
+        g[best]=v;
+        if (bt()) return true;
+        g[best]=0;
+      }
+    }
+    return false;
+  }
+  bt(); return g;
+}
+
+function generatePuzzle(difficulty, seed=null) {
+  const rng = seed!==null ? seededRng(seed) : Math.random.bind(Math);
+  const solution = generateFullSolution(rng);
+  const puzzle = [...solution];
+  const diffParams = {
+    easy:   {min:36,max:45}, normal:{min:30,max:35},
+    hard:   {min:25,max:29}, expert:{min:22,max:24}, insane:{min:17,max:21}
+  };
+  const {min,max} = diffParams[difficulty]||diffParams.normal;
+  const indices = shuffle(Array.from({length:81},(_,i)=>i), rng);
+  let attempts=0;
+  for (const idx of indices) {
+    if (attempts>300) break;
+    const backup=puzzle[idx];
+    puzzle[idx]=0;
+    if (puzzle.filter(v=>v!==0).length<min) { puzzle[idx]=backup; continue; }
+    if (!hasUniqueSolution(puzzle)) { puzzle[idx]=backup; attempts++; }
+  }
+  return {grid:puzzle, solution};
+}
+
+function seededRng(seed) {
+  let s = seed >>> 0;
+  return function() {
+    s = (s ^ (s<<13)) >>> 0;
+    s = (s ^ (s>>>7)) >>> 0;
+    s = (s ^ (s<<17)) >>> 0;
+    return (s>>>0) / 4294967296;
+  };
+}
+
+// ---- Solver (logical) ----
+function buildCandidates(grid) {
+  const cands = Array.from({length:9},()=>Array.from({length:9},()=>new Set([1,2,3,4,5,6,7,8,9])));
+  for (let r=0;r<9;r++) for (let c=0;c<9;c++) {
+    const v=grid[r*9+c];
+    if (v) {
+      cands[r][c]=new Set();
+      peers(r,c).forEach(([pr,pc])=>cands[pr][pc].delete(v));
+    }
+  }
+  return cands;
+}
+
+function peers(row,col) {
+  const res=new Set();
+  for (let c=0;c<9;c++) if (c!==col) res.add(row*9+c);
+  for (let r=0;r<9;r++) if (r!==row) res.add(r*9+col);
+  const br=~~(row/3)*3,bc=~~(col/3)*3;
+  for (let r=br;r<br+3;r++) for (let c=bc;c<bc+3;c++) if (r!==row||c!==col) res.add(r*9+c);
+  return [...res].map(i=>[~~(i/9),i%9]);
+}
+
+function boxCells(box) {
+  const cells=[];
+  const br=~~(box/3)*3,bc=(box%3)*3;
+  for (let r=br;r<br+3;r++) for (let c=bc;c<bc+3;c++) cells.push([r,c]);
+  return cells;
+}
+
+function nextStep(grid) {
+  const cands=buildCandidates(grid);
+  return nakedSingle(cands)||hiddenSingle(cands)||
+    nakedPair(cands)||hiddenPair(cands)||nakedTriple(cands)||
+    pointingPair(cands)||boxLineReduction(cands)||
+    xWing(cands)||swordfish(cands)||xyWing(cands)||xyzWing(cands)||
+    uniqueRectangle(cands)||simpleColoring(cands)||null;
+}
+
+function nakedSingle(cands) {
+  for (let r=0;r<9;r++) for (let c=0;c<9;c++) {
+    if (cands[r][c].size===1) {
+      const v=[...cands[r][c]][0];
+      return {placements:[[r,c,v]],eliminations:[],technique:'Naked Single',
+        related:peers(r,c),explanation:`(${r+1},${c+1}) の候補は ${v} のみ → 確定`};
+    }
+  }
+}
+
+function hiddenSingle(cands) {
+  for (let r=0;r<9;r++) for (let v=1;v<=9;v++) {
+    const cols=(Array.from({length:9},(_,c)=>c)).filter(c=>cands[r][c].has(v));
+    if (cols.length===1) return {placements:[[r,cols[0],v]],eliminations:[],
+      technique:'Hidden Single',related:Array.from({length:9},(_,c)=>[r,c]),
+      explanation:`行${r+1} で ${v} が入るのは列${cols[0]+1} のみ`};
+  }
+  for (let c=0;c<9;c++) for (let v=1;v<=9;v++) {
+    const rows=(Array.from({length:9},(_,r)=>r)).filter(r=>cands[r][c].has(v));
+    if (rows.length===1) return {placements:[[rows[0],c,v]],eliminations:[],
+      technique:'Hidden Single',related:Array.from({length:9},(_,r)=>[r,c]),
+      explanation:`列${c+1} で ${v} が入るのは行${rows[0]+1} のみ`};
+  }
+  for (let b=0;b<9;b++) for (let v=1;v<=9;v++) {
+    const cells=boxCells(b).filter(([r,c])=>cands[r][c].has(v));
+    if (cells.length===1) return {placements:[[cells[0][0],cells[0][1],v]],eliminations:[],
+      technique:'Hidden Single',related:boxCells(b),
+      explanation:`ボックス${b+1} で ${v} が入るのは(${cells[0][0]+1},${cells[0][1]+1})のみ`};
+  }
+}
+
+function nakedPair(cands) {
+  function check(cells,unitName) {
+    const pairs=cells.filter(([r,c])=>cands[r][c].size===2);
+    for (let i=0;i<pairs.length;i++) for (let j=i+1;j<pairs.length;j++) {
+      const [r1,c1]=pairs[i],[r2,c2]=pairs[j];
+      const s1=cands[r1][c1],s2=cands[r2][c2];
+      if (s1.size===s2.size&&[...s1].every(v=>s2.has(v))) {
+        const digits=[...s1];
+        const elims=[];
+        cells.forEach(([r,c])=>{
+          if ((r===r1&&c===c1)||(r===r2&&c===c2)) return;
+          digits.forEach(d=>{ if(cands[r][c].has(d)) elims.push([r,c,d]); });
+        });
+        if (elims.length) return {placements:[],eliminations:elims,technique:'Naked Pair',
+          related:[[r1,c1],[r2,c2]],
+          explanation:`${unitName} で Naked Pair [${digits}] → 他セルから候補除去`};
+      }
+    }
+  }
+  for (let r=0;r<9;r++) { const s=check(Array.from({length:9},(_,c)=>[r,c]),`行${r+1}`); if(s) return s; }
+  for (let c=0;c<9;c++) { const s=check(Array.from({length:9},(_,r)=>[r,c]),`列${c+1}`); if(s) return s; }
+  for (let b=0;b<9;b++) { const s=check(boxCells(b),`ボックス${b+1}`); if(s) return s; }
+}
+
+function hiddenPair(cands) {
+  function check(cells,unitName) {
+    for (let d1=1;d1<=8;d1++) for (let d2=d1+1;d2<=9;d2++) {
+      const c1=cells.filter(([r,c])=>cands[r][c].has(d1));
+      const c2=cells.filter(([r,c])=>cands[r][c].has(d2));
+      if (c1.length!==2||c2.length!==2) continue;
+      const key1=c1.map(x=>x[0]*9+x[1]).sort().join();
+      const key2=c2.map(x=>x[0]*9+x[1]).sort().join();
+      if (key1!==key2) continue;
+      const elims=[];
+      c1.forEach(([r,c])=>{
+        for (let d=1;d<=9;d++) if(d!==d1&&d!==d2&&cands[r][c].has(d)) elims.push([r,c,d]);
+      });
+      if (elims.length) return {placements:[],eliminations:elims,technique:'Hidden Pair',
+        related:c1,explanation:`${unitName} で Hidden Pair (${d1},${d2}) → 余分な候補除去`};
+    }
+  }
+  for (let r=0;r<9;r++) { const s=check(Array.from({length:9},(_,c)=>[r,c]),`行${r+1}`); if(s) return s; }
+  for (let c=0;c<9;c++) { const s=check(Array.from({length:9},(_,r)=>[r,c]),`列${c+1}`); if(s) return s; }
+  for (let b=0;b<9;b++) { const s=check(boxCells(b),`ボックス${b+1}`); if(s) return s; }
+}
+
+function nakedTriple(cands) {
+  function check(cells,unitName) {
+    const small=cells.filter(([r,c])=>cands[r][c].size>=1&&cands[r][c].size<=3);
+    for (let i=0;i<small.length;i++) for (let j=i+1;j<small.length;j++) for (let k=j+1;k<small.length;k++) {
+      const union=new Set([...cands[small[i][0]][small[i][1]],...cands[small[j][0]][small[j][1]],...cands[small[k][0]][small[k][1]]]);
+      if (union.size!==3) continue;
+      const triple=[small[i],small[j],small[k]];
+      const elims=[];
+      cells.forEach(([r,c])=>{
+        if (triple.some(([tr,tc])=>tr===r&&tc===c)) return;
+        union.forEach(d=>{ if(cands[r][c].has(d)) elims.push([r,c,d]); });
+      });
+      if (elims.length) return {placements:[],eliminations:elims,technique:'Naked Triple',
+        related:triple,explanation:`${unitName} で Naked Triple [${[...union]}] → 他セルから候補除去`};
+    }
+  }
+  for (let r=0;r<9;r++) { const s=check(Array.from({length:9},(_,c)=>[r,c]),`行${r+1}`); if(s) return s; }
+  for (let c=0;c<9;c++) { const s=check(Array.from({length:9},(_,r)=>[r,c]),`列${c+1}`); if(s) return s; }
+  for (let b=0;b<9;b++) { const s=check(boxCells(b),`ボックス${b+1}`); if(s) return s; }
+}
+
+function pointingPair(cands) {
+  for (let b=0;b<9;b++) {
+    const br=~~(b/3)*3,bc=(b%3)*3;
+    for (let v=1;v<=9;v++) {
+      const pos=boxCells(b).filter(([r,c])=>cands[r][c].has(v));
+      if (pos.length<2||pos.length>3) continue;
+      const rows=new Set(pos.map(x=>x[0])),cols=new Set(pos.map(x=>x[1]));
+      if (rows.size===1) {
+        const r=[...rows][0];
+        const elims=[];
+        for (let c=0;c<9;c++) if((c<bc||c>=bc+3)&&cands[r][c].has(v)) elims.push([r,c,v]);
+        if (elims.length) return {placements:[],eliminations:elims,technique:'Pointing Pair',
+          related:pos,explanation:`ボックス${b+1} で ${v} は行${r+1} に限定 → 行の他セルから除去`};
+      }
+      if (cols.size===1) {
+        const c=[...cols][0];
+        const elims=[];
+        for (let r=0;r<9;r++) if((r<br||r>=br+3)&&cands[r][c].has(v)) elims.push([r,c,v]);
+        if (elims.length) return {placements:[],eliminations:elims,technique:'Pointing Pair',
+          related:pos,explanation:`ボックス${b+1} で ${v} は列${c+1} に限定 → 列の他セルから除去`};
+      }
+    }
+  }
+}
+
+function boxLineReduction(cands) {
+  for (let r=0;r<9;r++) for (let v=1;v<=9;v++) {
+    const cols=(Array.from({length:9},(_,c)=>c)).filter(c=>cands[r][c].has(v));
+    if (cols.length<2||cols.length>3) continue;
+    const bCols=new Set(cols.map(c=>~~(c/3)));
+    if (bCols.size!==1) continue;
+    const bCol=[...bCols][0]*3, br=~~(r/3)*3, elims=[];
+    for (let row=br;row<br+3;row++) if(row!==r) for(let c=bCol;c<bCol+3;c++) if(cands[row][c].has(v)) elims.push([row,c,v]);
+    if (elims.length) return {placements:[],eliminations:elims,technique:'Box-Line Reduction',
+      related:cols.map(c=>[r,c]),explanation:`行${r+1} で ${v} はボックス内に限定 → ボックス他行から除去`};
+  }
+  for (let c=0;c<9;c++) for (let v=1;v<=9;v++) {
+    const rows=(Array.from({length:9},(_,r)=>r)).filter(r=>cands[r][c].has(v));
+    if (rows.length<2||rows.length>3) continue;
+    const bRows=new Set(rows.map(r=>~~(r/3)));
+    if (bRows.size!==1) continue;
+    const bRow=[...bRows][0]*3,bc=~~(c/3)*3,elims=[];
+    for (let r=bRow;r<bRow+3;r++) for(let col=bc;col<bc+3;col++) if(col!==c&&cands[r][col].has(v)) elims.push([r,col,v]);
+    if (elims.length) return {placements:[],eliminations:elims,technique:'Box-Line Reduction',
+      related:rows.map(r=>[r,c]),explanation:`列${c+1} で ${v} はボックス内に限定 → ボックス他列から除去`};
+  }
+}
+
+function xWing(cands) {
+  for (let v=1;v<=9;v++) {
+    const rData={};
+    for (let r=0;r<9;r++) {
+      const cols=Array.from({length:9},(_,c)=>c).filter(c=>cands[r][c].has(v));
+      if (cols.length===2) rData[r]=cols;
+    }
+    const rows=Object.keys(rData).map(Number);
+    for (let i=0;i<rows.length;i++) for (let j=i+1;j<rows.length;j++) {
+      const [r1,r2]=[rows[i],rows[j]];
+      if (rData[r1].join()!==rData[r2].join()) continue;
+      const elims=[];
+      for (let r=0;r<9;r++) if(r!==r1&&r!==r2) rData[r1].forEach(c=>{ if(cands[r][c].has(v)) elims.push([r,c,v]); });
+      if (elims.length) return {placements:[],eliminations:elims,technique:'X-Wing',
+        related:[[r1,rData[r1][0]],[r1,rData[r1][1]],[r2,rData[r2][0]],[r2,rData[r2][1]]],
+        explanation:`X-Wing: 行${r1+1},${r2+1} 列${rData[r1].map(c=>c+1)} で ${v} → 列の他セルから除去`};
+    }
+  }
+}
+
+function swordfish(cands) {
+  for (let v=1;v<=9;v++) {
+    const rData={};
+    for (let r=0;r<9;r++) {
+      const cols=Array.from({length:9},(_,c)=>c).filter(c=>cands[r][c].has(v));
+      if (cols.length>=2&&cols.length<=3) rData[r]=cols;
+    }
+    const rows=Object.keys(rData).map(Number);
+    if (rows.length<3) continue;
+    for (let i=0;i<rows.length-2;i++) for (let j=i+1;j<rows.length-1;j++) for (let k=j+1;k<rows.length;k++) {
+      const [r1,r2,r3]=[rows[i],rows[j],rows[k]];
+      const colSet=new Set([...rData[r1],...rData[r2],...rData[r3]]);
+      if (colSet.size!==3) continue;
+      const colArr=[...colSet];
+      const elims=[];
+      for (let r=0;r<9;r++) if(r!==r1&&r!==r2&&r!==r3) colArr.forEach(c=>{ if(cands[r][c].has(v)) elims.push([r,c,v]); });
+      if (elims.length) return {placements:[],eliminations:elims,technique:'Swordfish',
+        related:[r1,r2,r3].flatMap(r=>colArr.map(c=>[r,c])),
+        explanation:`Swordfish: 行${r1+1},${r2+1},${r3+1} で ${v} → 列から除去`};
+    }
+  }
+}
+
+function xyWing(cands) {
+  for (let pr=0;pr<9;pr++) for (let pc=0;pc<9;pc++) {
+    const pivot=cands[pr][pc];
+    if (pivot.size!==2) continue;
+    const [x,y]=[...pivot];
+    const pp=peers(pr,pc);
+    for (let z=1;z<=9;z++) {
+      if (z===x||z===y) continue;
+      const p1s=pp.filter(([r,c])=>cands[r][c].size===2&&cands[r][c].has(x)&&cands[r][c].has(z));
+      const p2s=pp.filter(([r,c])=>cands[r][c].size===2&&cands[r][c].has(y)&&cands[r][c].has(z));
+      for (const p1 of p1s) for (const p2 of p2s) {
+        if (p1[0]===p2[0]&&p1[1]===p2[1]) continue;
+        const pp1=new Set(peers(p1[0],p1[1]).map(([r,c])=>r*9+c));
+        const pp2=new Set(peers(p2[0],p2[1]).map(([r,c])=>r*9+c));
+        const common=[...pp1].filter(i=>pp2.has(i));
+        const elims=[];
+        common.forEach(i=>{ const r=~~(i/9),c=i%9; if(cands[r][c].has(z)) elims.push([r,c,z]); });
+        if (elims.length) return {placements:[],eliminations:elims,technique:'XY-Wing',
+          related:[[pr,pc],p1,p2],
+          explanation:`XY-Wing: ピボット(${pr+1},${pc+1})[${x},${y}] → 共通ピアから${z}除去`};
+      }
+    }
+  }
+}
+
+function xyzWing(cands) {
+  for (let pr=0;pr<9;pr++) for (let pc=0;pc<9;pc++) {
+    const pivot=cands[pr][pc];
+    if (pivot.size!==3) continue;
+    const pp=peers(pr,pc);
+    const wings=pp.filter(([r,c])=>cands[r][c].size===2&&[...cands[r][c]].every(v=>pivot.has(v)));
+    for (let i=0;i<wings.length-1;i++) for (let j=i+1;j<wings.length;j++) {
+      const w1=wings[i],w2=wings[j];
+      const union=new Set([...cands[w1[0]][w1[1]],...cands[w2[0]][w2[1]]]);
+      if (union.size!==3||![...union].every(v=>pivot.has(v))) continue;
+      const z=[...cands[w1[0]][w1[1]]].find(v=>cands[w2[0]][w2[1]].has(v));
+      if (!z) continue;
+      const ppP=new Set(peers(pr,pc).map(([r,c])=>r*9+c));
+      const pp1=new Set(peers(w1[0],w1[1]).map(([r,c])=>r*9+c));
+      const pp2=new Set(peers(w2[0],w2[1]).map(([r,c])=>r*9+c));
+      const common=[...ppP].filter(i=>pp1.has(i)&&pp2.has(i));
+      const elims=[];
+      common.forEach(i=>{ const r=~~(i/9),c=i%9; if(cands[r][c].has(z)) elims.push([r,c,z]); });
+      if (elims.length) return {placements:[],eliminations:elims,technique:'XYZ-Wing',
+        related:[[pr,pc],w1,w2],
+        explanation:`XYZ-Wing: ピボット(${pr+1},${pc+1})[${[...pivot]}] → 共通ピアから${z}除去`};
+    }
+  }
+}
+
+function uniqueRectangle(cands) {
+  for (let r1=0;r1<8;r1++) for (let r2=r1+1;r2<9;r2++) {
+    if (~~(r1/3)===~~(r2/3)) continue;
+    for (let c1=0;c1<8;c1++) for (let c2=c1+1;c2<9;c2++) {
+      if (~~(c1/3)===~~(c2/3)) continue;
+      const corners=[[r1,c1],[r1,c2],[r2,c1],[r2,c2]];
+      const base=cands[r1][c1];
+      if (base.size!==2) continue;
+      const floor=corners.filter(([r,c])=>cands[r][c].size===2&&[...base].every(v=>cands[r][c].has(v))&&[...cands[r][c]].every(v=>base.has(v)));
+      if (floor.length!==3) continue;
+      const roof=corners.find(([r,c])=>!floor.some(([fr,fc])=>fr===r&&fc===c));
+      if (!roof||![...base].every(v=>cands[roof[0]][roof[1]].has(v))) continue;
+      const elims=[...base].map(d=>[roof[0],roof[1],d]);
+      if (elims.length) return {placements:[],eliminations:elims,technique:'Unique Rectangle',
+        related:corners,explanation:`Unique Rectangle: (${r1+1},${c1+1})等 → (${roof[0]+1},${roof[1]+1})から除去`};
+    }
+  }
+}
+
+function simpleColoring(cands) {
+  for (let v=1;v<=9;v++) {
+    const graph={};
+    const cells=[];
+    for (let r=0;r<9;r++) for (let c=0;c<9;c++) if(cands[r][c].has(v)) cells.push([r,c]);
+    cells.forEach(([r,c])=>{ graph[r*9+c]=[]; });
+    for (let r=0;r<9;r++) {
+      const rc=cells.filter(([cr])=>cr===r);
+      if (rc.length===2) { const [a,b]=[rc[0][0]*9+rc[0][1],rc[1][0]*9+rc[1][1]]; graph[a].push(b); graph[b].push(a); }
+    }
+    for (let c=0;c<9;c++) {
+      const cc=cells.filter(([,cc])=>cc===c);
+      if (cc.length===2) { const [a,b]=[cc[0][0]*9+cc[0][1],cc[1][0]*9+cc[1][1]]; graph[a].push(b); graph[b].push(a); }
+    }
+    const color={};
+    cells.forEach(([r,c])=>{
+      const k=r*9+c;
+      if (color[k]!==undefined||!graph[k]||!graph[k].length) return;
+      const q=[k]; color[k]=0;
+      while (q.length) {
+        const cur=q.shift();
+        (graph[cur]||[]).forEach(nb=>{ if(color[nb]===undefined){ color[nb]=1-color[cur]; q.push(nb); } });
+      }
+    });
+    const allUnits=[
+      ...Array.from({length:9},(_,r)=>Array.from({length:9},(_,c)=>[r,c])),
+      ...Array.from({length:9},(_,c)=>Array.from({length:9},(_,r)=>[r,c])),
+      ...Array.from({length:9},(_,b)=>boxCells(b))
+    ];
+    for (const unit of allUnits) {
+      for (let col=0;col<=1;col++) {
+        const same=unit.filter(([r,c])=>color[r*9+c]===col&&cands[r][c].has(v));
+        if (same.length>=2) {
+          const elims=cells.filter(([r,c])=>color[r*9+c]===col).map(([r,c])=>[r,c,v]);
+          if (elims.length) return {placements:[],eliminations:elims,technique:'Simple Coloring',
+            related:cells,explanation:`Simple Coloring: ${v} の同色が同ユニットに2つ → 矛盾色を除去`};
+        }
+      }
+    }
+  }
+}
+
+// Full backtracking solve (for import validation)
+function solveGrid(grid) {
+  const g=[...grid];
+  function bt() {
+    let best=-1,bestCnt=10;
+    for (let i=0;i<81;i++) {
+      if (g[i]) continue;
+      let cnt=0,r=~~(i/9),c=i%9;
+      for (let v=1;v<=9;v++) if(isPlacementValid(g,r,c,v)) cnt++;
+      if (!cnt) return false;
+      if (cnt<bestCnt) { bestCnt=cnt; best=i; }
+    }
+    if (best===-1) return true;
+    const r=~~(best/9),c=best%9;
+    for (let v=1;v<=9;v++) {
+      if (isPlacementValid(g,r,c,v)) { g[best]=v; if(bt()) return true; g[best]=0; }
+    }
+    return false;
+  }
+  return bt()?g:null;
+}
+
+/* ================================================================
+   GAME STATE
+================================================================ */
+const MAX_MISTAKES = 3;
+const DIFFICULTIES = {
+  easy:   {name:'かんたん', est:'5〜15分',  color:'#30d158', gradient:'linear-gradient(135deg,#30d158,#00b377)', icon:'😊', min:[5,15]},
+  normal: {name:'ふつう',   est:'15〜30分', color:'#3478F6', gradient:'linear-gradient(135deg,#3478F6,#0a9fcc)', icon:'🧠', min:[15,30]},
+  hard:   {name:'むずかしい',est:'30〜60分', color:'#ff9500', gradient:'linear-gradient(135deg,#ff9500,#ff6b00)', icon:'🔥', min:[30,60]},
+  expert: {name:'エキスパート',est:'45〜90分',color:'#ff3b30', gradient:'linear-gradient(135deg,#ff3b30,#ff6b00)', icon:'⚡', min:[45,90]},
+  insane: {name:'鬼難問',   est:'60〜120分',color:'#8e44ad', gradient:'linear-gradient(135deg,#8e44ad,#c0392b)', icon:'💀', min:[60,120]},
+};
+
+let state = {
+  puzzle: null,        // {grid, solution}
+  cells: [],           // [{value, given, candidates, state}]
+  difficulty: 'normal',
+  status: 'idle',      // idle|playing|paused|completed|failed
+  elapsed: 0,
+  selected: -1,
+  hints: 0,
+  mistakes: 0,
+  isMemo: false,
+  currentHint: null,
+  undoStack: [],
+  timerInterval: null,
+};
+
+/* ================================================================
+   STORAGE
+================================================================ */
+function saveRecords(records) { localStorage.setItem('sudoku_records', JSON.stringify(records)); }
+function loadRecords() { try { return JSON.parse(localStorage.getItem('sudoku_records'))||[]; } catch { return []; } }
+function saveGame() {
+  if (state.status==='completed'||state.status==='idle') return;
+  localStorage.setItem('sudoku_save', JSON.stringify({
+    puzzle:state.puzzle, cells:state.cells, difficulty:state.difficulty,
+    elapsed:state.elapsed, hints:state.hints, mistakes:state.mistakes
+  }));
+}
+function loadGame() { try { return JSON.parse(localStorage.getItem('sudoku_save')); } catch { return null; } }
+function clearSave() { localStorage.removeItem('sudoku_save'); }
+
+/* ================================================================
+   HAPTIC
+================================================================ */
+function haptic(type) {
+  if (!window.navigator.vibrate) return;
+  if (type==='light')    navigator.vibrate(10);
+  else if (type==='medium') navigator.vibrate([20,10,20]);
+  else if (type==='heavy')  navigator.vibrate([30,20,30,20,60]);
+  else if (type==='error')  navigator.vibrate([40,20,40]);
+}
+
+/* ================================================================
+   BOARD RENDERING
+================================================================ */
+function buildBoard() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  for (let i = 0; i < 81; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.id = `cell-${i}`;
+    cell.addEventListener('click', () => selectCell(i));
+    board.appendChild(cell);
+  }
+}
+
+function renderBoard() {
+  for (let i = 0; i < 81; i++) {
+    const el = document.getElementById(`cell-${i}`);
+    if (!el) continue;
+    const c = state.cells[i];
+    el.className = 'cell' + getHighlightClass(i) + getCellStateClass(i);
+    el.innerHTML = '';
+
+    if (c.value) {
+      el.textContent = c.value;
+    } else if (c.candidates.size > 0) {
+      const grid = document.createElement('div');
+      grid.className = 'candidates';
+      for (let n = 1; n <= 9; n++) {
+        const span = document.createElement('div');
+        span.className = 'cand-num';
+        span.textContent = c.candidates.has(n) ? n : '';
+        grid.appendChild(span);
+      }
+      el.appendChild(grid);
+    }
+  }
+  renderNumpad();
+  renderMistakes();
+}
+
+function getHighlightClass(i) {
+  const sel = state.selected;
+  if (i === sel) return ' selected';
+  if (sel < 0) return '';
+  const r = ~~(i/9), c = i%9;
+  const sr = ~~(sel/9), sc = sel%9;
+  const sv = state.cells[sel].value;
+  if (sv && state.cells[i].value === sv) return ' same-val';
+  if (r===sr || c===sc || (~~(r/3)===~~(sr/3)&&~~(c/3)===~~(sc/3))) return ' peer';
+  return '';
+}
+
+function getCellStateClass(i) {
+  const s = state.cells[i];
+  if (s.given) return ' given';
+  switch(s.state) {
+    case 'error':   return ' error';
+    case 'hint':    return ' hint-val';
+    case 'correct': return ' correct';
+    default: return s.value ? ' filled' : '';
+  }
+}
+
+function renderNumpad() {
+  const numpad = document.getElementById('numpad');
+  const counts = Array(10).fill(0);
+  state.cells.forEach(c => { if(c.value) counts[c.value]++; });
+  const selVal = state.selected>=0 ? state.cells[state.selected].value : 0;
+  numpad.querySelectorAll('.num-btn').forEach((btn, i) => {
+    const n = i + 1;
+    btn.className = 'num-btn' + (n===selVal?' highlighted':'') + (counts[n]>=9?' completed':'');
+  });
+}
+
+function renderMistakes() {
+  const dots = document.getElementById('mistake-dots');
+  dots.innerHTML = '';
+  for (let i = 0; i < MAX_MISTAKES; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i < state.mistakes ? ' active' : '');
+    dots.appendChild(d);
+  }
+}
+
+function renderTimer() {
+  const el = document.getElementById('timer-val');
+  const t = state.elapsed;
+  const h = ~~(t/3600), m = ~~((t%3600)/60), s = t%60;
+  el.textContent = h>0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
+  if (state.status==='paused') el.style.color='var(--text2)';
+  else el.style.color='';
+}
+
+/* ================================================================
+   GAME LOGIC
+================================================================ */
+function initState(puzzle, difficulty) {
+  state.puzzle = puzzle;
+  state.difficulty = difficulty;
+  state.cells = puzzle.grid.map((v,i) => ({
+    value: v, given: v!==0, candidates: new Set(), state: v?'given':'empty'
+  }));
+  state.status = 'idle';
+  state.elapsed = 0;
+  state.selected = -1;
+  state.hints = 0;
+  state.mistakes = 0;
+  state.isMemo = false;
+  state.currentHint = null;
+  state.undoStack = [];
+  stopTimer();
+}
+
+function startTimer() {
+  if (state.timerInterval) return;
+  state.status = 'playing';
+  state.timerInterval = setInterval(() => {
+    if (state.status==='playing') { state.elapsed++; renderTimer(); }
+  }, 1000);
+}
+function stopTimer() { clearInterval(state.timerInterval); state.timerInterval=null; }
+
+function selectCell(idx) {
+  if (state.status==='completed'||state.status==='failed') return;
+  if (state.status==='paused') { resumeGame(); return; }
+  if (state.status==='idle') startTimer();
+  state.selected = state.selected===idx ? -1 : idx;
+  renderBoard();
+  haptic('light');
+}
+
+function inputNumber(n) {
+  if (state.selected<0) return;
+  const sel = state.cells[state.selected];
+  if (sel.given) return;
+  if (state.status==='idle') startTimer();
+  if (state.status!=='playing') return;
+
+  if (state.isMemo) {
+    pushUndo();
+    if (sel.candidates.has(n)) sel.candidates.delete(n);
+    else sel.candidates.add(n);
+    haptic('light');
+    renderBoard();
+    return;
+  }
+
+  pushUndo();
+  if (sel.value===n) {
+    sel.value=0; sel.state='empty'; sel.candidates=new Set();
+    haptic('light'); renderBoard(); return;
+  }
+
+  sel.value = n;
+  sel.candidates = new Set();
+
+  const r=~~(state.selected/9),c=state.selected%9;
+  if (state.puzzle.solution[state.selected]===n) {
+    sel.state='filled';
+    haptic('light');
+    removeCandidateFromPeers(state.selected, n);
+  } else {
+    sel.state='error';
+    state.mistakes++;
+    haptic('error');
+    shakeCell(state.selected);
+    if (state.mistakes>=MAX_MISTAKES) { gameFail(); return; }
+  }
+
+  renderBoard();
+  if (checkComplete()) handleComplete();
+}
+
+function eraseCell() {
+  if (state.selected<0) return;
+  const sel=state.cells[state.selected];
+  if (sel.given||state.status!=='playing') return;
+  pushUndo();
+  sel.value=0; sel.state='empty'; sel.candidates=new Set();
+  haptic('light'); renderBoard();
+}
+
+function toggleMemo() {
+  state.isMemo=!state.isMemo;
+  haptic('light');
+  const icon=document.getElementById('memo-icon');
+  icon.classList.toggle('active',state.isMemo);
+  icon.textContent=state.isMemo?'✏️':'✏️';
+  document.getElementById('btn-memo').querySelector('.ctrl-icon').classList.toggle('active',state.isMemo);
+}
+
+function pushUndo() {
+  state.undoStack.push(state.cells.map(c=>({...c,candidates:new Set(c.candidates)})));
+  if (state.undoStack.length>30) state.undoStack.shift();
+  document.getElementById('btn-undo').disabled=false;
+}
+function doUndo() {
+  if (!state.undoStack.length) return;
+  state.cells=state.undoStack.pop();
+  if (!state.undoStack.length) document.getElementById('btn-undo').disabled=true;
+  haptic('light'); renderBoard();
+}
+
+function removeCandidateFromPeers(idx, val) {
+  const r=~~(idx/9),c=idx%9;
+  peers(r,c).forEach(([pr,pc])=>{ state.cells[pr*9+pc].candidates.delete(val); });
+}
+
+function checkComplete() {
+  return state.cells.every((c,i)=>c.value!==0&&c.value===state.puzzle.solution[i]);
+}
+
+function handleComplete() {
+  state.status='completed';
+  stopTimer();
+  state.cells.forEach(c=>{ if(!c.given&&c.state!=='hint') c.state='correct'; });
+  saveRecord();
+  clearSave();
+  haptic('heavy');
+  setTimeout(()=>{
+    showResult();
+    if (state.difficulty==='insane') fireConfetti(80);
+    else fireConfetti(40);
+  }, 800);
+}
+
+function gameFail() {
+  state.status='failed';
+  stopTimer();
+  haptic('heavy');
+  alert('ミスが多すぎます！\nゲームオーバー');
+}
+
+function pauseGame() {
+  if (state.status!=='playing') return;
+  state.status='paused';
+  stopTimer();
+  document.getElementById('pause-overlay').classList.add('show');
+  haptic('light');
+  saveGame();
+}
+
+function resumeGame() {
+  if (state.status!=='paused') return;
+  document.getElementById('pause-overlay').classList.remove('show');
+  state.status='playing';
+  startTimer();
+  haptic('light');
+}
+
+function shakeCell(idx) {
+  const el=document.getElementById(`cell-${idx}`);
+  el.classList.add('shake');
+  setTimeout(()=>el.classList.remove('shake'),400);
+}
+
+/* ================================================================
+   HINT
+================================================================ */
+function requestHint() {
+  if (state.status==='idle') startTimer();
+  if (state.status==='paused') resumeGame();
+  const grid=state.cells.map(c=>c.value);
+  const step=nextStep(grid);
+  if (!step) { alert('これ以上ヒントは提供できません\n（別のアプローチが必要です）'); return; }
+  state.currentHint=step;
+  state.hints++;
+
+  // ハイライト
+  applyHintHighlight(step);
+
+  document.getElementById('hint-tech').textContent=step.technique;
+  document.getElementById('hint-explanation').textContent=step.explanation;
+  const detail=[];
+  if (step.placements.length) detail.push(`確定: ${step.placements.map(([r,c,v])=>`(${r+1},${c+1})=${v}`).join(', ')}`);
+  if (step.eliminations.length) detail.push(`候補削除: ${step.eliminations.length}個`);
+  document.getElementById('hint-detail').textContent=detail.join('  ');
+  document.getElementById('hint-apply-btn').style.display=step.placements.length?'':'none';
+
+  document.getElementById('hint-backdrop').classList.add('show');
+  document.getElementById('hint-sheet').classList.add('show');
+  haptic('light');
+}
+
+function applyHintHighlight(step) {
+  clearHintHighlight();
+  step.placements.forEach(([r,c])=>{
+    const el=document.getElementById(`cell-${r*9+c}`);
+    if(el) el.classList.add('hint-tgt');
+  });
+  step.related.forEach(([r,c])=>{
+    const el=document.getElementById(`cell-${r*9+c}`);
+    if(el&&!el.classList.contains('hint-tgt')) el.classList.add('hint-rel');
+  });
+}
+
+function clearHintHighlight() {
+  document.querySelectorAll('.hint-tgt,.hint-rel').forEach(el=>{
+    el.classList.remove('hint-tgt','hint-rel');
+  });
+}
+
+function applyHint() {
+  const step=state.currentHint;
+  if (!step) return;
+  pushUndo();
+  step.placements.forEach(([r,c,v])=>{
+    state.cells[r*9+c].value=v;
+    state.cells[r*9+c].state='hint';
+    state.cells[r*9+c].candidates=new Set();
+    removeCandidateFromPeers(r*9+c,v);
+  });
+  step.eliminations.forEach(([r,c,v])=>{ state.cells[r*9+c].candidates.delete(v); });
+  dismissHint();
+  renderBoard();
+  if (checkComplete()) handleComplete();
+}
+
+function dismissHint() {
+  document.getElementById('hint-backdrop').classList.remove('show');
+  document.getElementById('hint-sheet').classList.remove('show');
+  clearHintHighlight();
+  state.currentHint=null;
+  renderBoard();
+}
+
+/* ================================================================
+   SCREENS
+================================================================ */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function goHome() {
+  saveGame();
+  stopTimer();
+  document.getElementById('pause-overlay').classList.remove('show');
+  showScreen('home');
+  updateHomeStats();
+}
+
+function showMenu() {
+  // シンプルなメニュー
+  const choice=window.confirm('メニュー\n\nOK → ヒントを使う\nキャンセル → やり直す');
+  if (choice) requestHint();
+  else if (confirm('やり直しますか？')) startNewGame(state.difficulty);
+}
+
+function showResult() {
+  const diff=DIFFICULTIES[state.difficulty];
+  const el=document.getElementById('result');
+  el.classList.toggle('insane-result',state.difficulty==='insane');
+
+  const score=calcScore();
+  const scoreColors={S:'linear-gradient(135deg,#ffd60a,#ff9f0a)',A:'linear-gradient(135deg,#3478F6,#0a9fcc)',B:'linear-gradient(135deg,#30d158,#00b377)',C:'linear-gradient(135deg,#636366,#48484a)'};
+  const scoreEmojis={S:'🏆',A:'⭐',B:'👍',C:'✅'};
+
+  document.getElementById('result-title').textContent=state.difficulty==='insane'?'🏆 鬼難問クリア！':'クリア！';
+  document.getElementById('score-badge').style.background=scoreColors[score];
+  document.getElementById('score-emoji').textContent=scoreEmojis[score];
+  document.getElementById('score-letter').textContent=score;
+  document.getElementById('result-time').textContent=formatTime(state.elapsed);
+  document.getElementById('res-time2').textContent=formatTime(state.elapsed);
+  document.getElementById('res-est').textContent=diff.est;
+  document.getElementById('res-hints').textContent=state.hints;
+  document.getElementById('res-mistakes').textContent=state.mistakes;
+
+  showScreen('result');
+}
+
+function calcScore() {
+  const diff=DIFFICULTIES[state.difficulty];
+  const target=diff.min[0]*60;
+  const timeRatio=state.elapsed/target;
+  const penalty=state.hints*10+state.mistakes*5;
+  const raw=Math.max(0,100-penalty-(timeRatio-1)*20);
+  if (raw>=90) return 'S';
+  if (raw>=70) return 'A';
+  if (raw>=50) return 'B';
+  return 'C';
+}
+
+function playAgain() { startNewGame(state.difficulty); }
+
+/* ================================================================
+   HOME
+================================================================ */
+function buildHome() {
+  // デイリー日付
+  const fmt=new Intl.DateTimeFormat('ja-JP',{month:'long',day:'numeric',weekday:'short'});
+  document.getElementById('daily-date').textContent=fmt.format(new Date());
+
+  // 難易度グリッド
+  const grid=document.getElementById('diff-grid');
+  grid.innerHTML='';
+  const diffs=['easy','normal','hard','expert','insane'];
+  diffs.forEach(d=>{
+    const info=DIFFICULTIES[d];
+    const card=document.createElement('div');
+    card.className='diff-card'+(d==='insane'?' insane':'');
+    card.style.borderColor='transparent';
+    const best=getBestTime(d);
+    card.innerHTML=`
+      <div class="diff-card-icon">${info.icon}</div>
+      <div class="diff-card-name" style="color:${info.color}">${info.name}</div>
+      <div class="diff-card-time">${info.est}</div>
+      ${best?`<div class="diff-card-best">🏅 ${best}</div>`:''}
+      <div class="diff-card-bar" style="background:${info.gradient}"></div>
+    `;
+    card.onclick=()=>startNewGame(d);
+    grid.appendChild(card);
+  });
+
+  updateHomeStats();
+}
+
+function updateHomeStats() {
+  const records=loadRecords();
+  document.getElementById('stat-total').textContent=records.length;
+  const normalBest=getBestTime('normal');
+  document.getElementById('stat-best').textContent=normalBest||'---';
+  document.getElementById('stat-s').textContent=records.filter(r=>r.score==='S').length;
+
+  // デイリー完了チェック
+  const todayKey=getTodayKey();
+  const doneToday=records.some(r=>r.dailyKey===todayKey);
+  document.getElementById('daily-icon').textContent=doneToday?'✅':'📅';
+}
+
+function getBestTime(difficulty) {
+  const records=loadRecords().filter(r=>r.difficulty===difficulty);
+  if (!records.length) return null;
+  return formatTime(Math.min(...records.map(r=>r.elapsed)));
+}
+
+function saveRecord() {
+  const records=loadRecords();
+  records.unshift({
+    difficulty:state.difficulty, elapsed:state.elapsed,
+    hints:state.hints, mistakes:state.mistakes, score:calcScore(),
+    date:new Date().toISOString(), dailyKey:getTodayKey()
+  });
+  saveRecords(records.slice(0,200));
+}
+
+function getTodayKey() {
+  const d=new Date();
+  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+}
+
+/* ================================================================
+   START GAME
+================================================================ */
+function startNewGame(difficulty, puzzle=null) {
+  showScreen('game');
+  const diff=DIFFICULTIES[difficulty];
+  document.getElementById('diff-badge').textContent=diff.name;
+  document.getElementById('diff-badge').style.background=diff.gradient;
+  document.getElementById('timer-est').innerHTML=`目安<br>${diff.est}`;
+
+  // numpad build
+  const numpad=document.getElementById('numpad');
+  numpad.innerHTML='';
+  for (let n=1;n<=9;n++) {
+    const btn=document.createElement('button');
+    btn.className='num-btn'; btn.textContent=n;
+    btn.onclick=()=>inputNumber(n);
+    numpad.appendChild(btn);
+  }
+
+  document.getElementById('btn-undo').disabled=true;
+
+  if (puzzle) {
+    initState(puzzle, difficulty);
+    buildBoard(); renderBoard(); renderTimer();
+    return;
+  }
+
+  // 生成
+  document.getElementById('loading').classList.add('show');
+  setTimeout(()=>{
+    const p=generatePuzzle(difficulty);
+    initState(p, difficulty);
+    buildBoard(); renderBoard(); renderTimer();
+    document.getElementById('loading').classList.remove('show');
+  }, 50);
+}
+
+function startDaily() {
+  const seed=parseInt(getTodayKey());
+  document.getElementById('loading').classList.add('show');
+  setTimeout(()=>{
+    const p=generatePuzzle('hard', seed);
+    startNewGame('hard', p);
+    document.getElementById('loading').classList.remove('show');
+  }, 50);
+}
+
+/* ================================================================
+   IMPORT
+================================================================ */
+function buildImportGrid() {
+  const grid=document.getElementById('import-grid');
+  grid.innerHTML='';
+  for (let i=0;i<81;i++) {
+    const input=document.createElement('input');
+    input.type='tel'; input.maxLength=1; input.className='import-cell';
+    input.oninput=(e)=>{
+      const v=e.target.value.replace(/[^1-9]/g,'');
+      e.target.value=v;
+      if (v&&i<80) grid.children[i+1].focus();
+    };
+    input.onkeydown=(e)=>{
+      if (e.key==='Backspace'&&!e.target.value&&i>0) grid.children[i-1].focus();
+    };
+    grid.appendChild(input);
+  }
+}
+
+function openImport() {
+  buildImportGrid();
+  document.getElementById('import-sheet').classList.add('show');
+}
+function closeImport() {
+  document.getElementById('import-sheet').classList.remove('show');
+}
+
+function doImport() {
+  const inputs=document.getElementById('import-grid').children;
+  const grid=Array.from(inputs).map(el=>parseInt(el.value)||0);
+  const errEl=document.getElementById('import-error');
+  errEl.textContent='';
+
+  if (!isGridValid(grid)) { errEl.textContent='数独のルールに違反しています'; return; }
+  const sol=solveGrid(grid);
+  if (!sol) { errEl.textContent='解が存在しません'; return; }
+  if (!hasUniqueSolution(grid)) { errEl.textContent='解が一意ではありません'; return; }
+
+  const diff=document.getElementById('import-diff').value;
+  closeImport();
+  startNewGame(diff, {grid, solution:sol});
+}
+
+/* ================================================================
+   CONFETTI
+================================================================ */
+function fireConfetti(count=40) {
+  const wrap=document.getElementById('confetti');
+  wrap.innerHTML='';
+  const colors=['#ffd60a','#ff9f0a','#ff6b6b','#3478F6','#30d158','#bf5af2','#64d2ff','#fff'];
+  for (let i=0;i<count;i++) {
+    const el=document.createElement('div');
+    el.className='confetti-piece';
+    el.style.left=Math.random()*100+'vw';
+    el.style.width=(Math.random()*8+4)+'px';
+    el.style.height=(Math.random()*8+4)+'px';
+    el.style.background=colors[~~(Math.random()*colors.length)];
+    el.style.transform=`rotate(${Math.random()*360}deg)`;
+    el.style.animationDuration=(Math.random()*2+1.5)+'s';
+    el.style.animationDelay=(Math.random()*0.8)+'s';
+    wrap.appendChild(el);
+  }
+  setTimeout(()=>wrap.innerHTML='', 4000);
+}
+
+/* ================================================================
+   UTILS
+================================================================ */
+function formatTime(t) {
+  const h=~~(t/3600),m=~~((t%3600)/60),s=t%60;
+  return h>0?`${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`:`${m}:${String(s).padStart(2,'0')}`;
+}
+
+/* ================================================================
+   VISIBILITY / BACKGROUND
+================================================================ */
+document.addEventListener('visibilitychange',()=>{
+  if (document.hidden&&state.status==='playing') pauseGame();
+});
+
+/* ================================================================
+   SERVICE WORKER 登録
+================================================================ */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(()=>{});
+}
+
+/* ================================================================
+   URL パラメータ処理（ショートカット対応）
+================================================================ */
+function handleUrlParams() {
+  const params=new URLSearchParams(location.search);
+  if (params.get('daily')==='1') { setTimeout(startDaily, 300); return true; }
+  const diff=params.get('difficulty');
+  if (diff&&DIFFICULTIES[diff]) { setTimeout(()=>startNewGame(diff), 300); return true; }
+  return false;
+}
+
+/* ================================================================
+   INIT
+================================================================ */
+window.addEventListener('load',()=>{
+  buildHome();
+  if (handleUrlParams()) return;
+
+  // 途中セーブ復元チェック
+  const saved=loadGame();
+  if (saved) {
+    const ok=confirm('前回の途中のゲームがあります。続けますか？');
+    if (ok) {
+      state.puzzle=saved.puzzle;
+      state.difficulty=saved.difficulty;
+      state.elapsed=saved.elapsed;
+      state.hints=saved.hints;
+      state.mistakes=saved.mistakes;
+      state.cells=saved.cells.map(c=>({...c,candidates:new Set(c.candidates)}));
+      state.status='paused';
+      showScreen('game');
+      const diff=DIFFICULTIES[saved.difficulty];
+      document.getElementById('diff-badge').textContent=diff.name;
+      document.getElementById('diff-badge').style.background=diff.gradient;
+      document.getElementById('timer-est').innerHTML=`目安<br>${diff.est}`;
+      const numpad=document.getElementById('numpad');
+      numpad.innerHTML='';
+      for (let n=1;n<=9;n++) {
+        const btn=document.createElement('button');
+        btn.className='num-btn'; btn.textContent=n;
+        btn.onclick=()=>inputNumber(n);
+        numpad.appendChild(btn);
+      }
+      buildBoard(); renderBoard(); renderTimer();
+      document.getElementById('pause-overlay').classList.add('show');
+    } else {
+      clearSave();
+    }
+  }
+});
+</script>
+</body>
+</html>
