@@ -688,6 +688,11 @@
         <span class="tool-pill-icon">💡</span>
         <span class="tool-pill-label">ヒント</span>
       </button>
+      <div class="tool-pill-sep"></div>
+      <button class="tool-pill-btn" onclick="resetTimer()">
+        <span class="tool-pill-icon">↺</span>
+        <span class="tool-pill-label">リセット</span>
+      </button>
     </div>
     <div style="position:relative">
       <button class="puzzle-menu-btn" onclick="togglePuzzleMenu()">
@@ -2368,6 +2373,16 @@ function toggleTimerPause() {
   if (state.status==='idle')    { startTimer(); haptic('light'); renderTimerState(); }
   else if (state.status==='playing') pauseGame();
   else if (state.status==='paused')  resumeGame();
+}
+
+function resetTimer() {
+  stopTimer();
+  state.elapsed = 0;
+  state.status = 'idle';
+  renderTimer();
+  renderTimerState();
+  haptic('light');
+  saveGame();
 }
 
 function renderTimerState() {
