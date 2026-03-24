@@ -201,12 +201,11 @@
 
     /* タイマー */
     .timer-area {
-      width: 100%; display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      align-items: center;
+      width: 100%; position: relative;
+      display: flex; align-items: center; justify-content: center;
       padding: 0 16px 2px; flex-shrink: 0;
     }
-    .timer-center { display: flex; flex-direction: column; align-items: center; grid-column: 2; }
+    .timer-center { display: flex; flex-direction: column; align-items: center; }
     .timer-value {
       font-size: 48px; font-weight: 900; letter-spacing: -2px;
       font-variant-numeric: tabular-nums;
@@ -223,19 +222,18 @@
       margin-top: 1px; opacity: 0; transition: opacity .3s;
     }
     .timer-hint.show { opacity: 1; }
-    /* 難易度バッジ：グリッド3列目・左揃え */
+    /* 難易度バッジ：タイマーの右に絶対配置 */
     .timer-badge {
-      grid-column: 3;
-      justify-self: start;
+      position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
       padding: 3px 12px; border-radius: 20px;
       font-size: 12px; font-weight: 700; color: #fff;
       letter-spacing: 0.2px;
     }
+    /* 目安時間：タイマーの左に絶対配置 */
     .timer-est {
-      grid-column: 1;
+      position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
       font-size: 11px; font-weight: 600; color: var(--text3);
-      line-height: 1.5; text-align: right;
-      padding-right: 12px;
+      line-height: 1.5; text-align: center;
     }
     .timer-mistakes { display: none; }
     .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bg3); transition: background .3s; }
