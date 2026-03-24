@@ -148,24 +148,24 @@
     .diff-card-bar {
       height: 3px; border-radius: 2px; margin-top: 10px;
     }
-    .diff-card.selected {
-      border-color: var(--accent);
-      background: var(--accent-light);
-      box-shadow: 0 0 0 3px rgba(52,120,246,0.15);
+    /* プールUI */
+    .diff-card-pool {
+      font-size: 10px; color: var(--text3); margin-top: 4px;
+      font-variant-numeric: tabular-nums;
     }
-
-    /* 更新ボタン */
-    .new-game-btn {
-      width: 100%; padding: 16px;
-      background: var(--accent); color: #fff;
-      border: none; border-radius: var(--radius);
-      font-size: 17px; font-weight: 700; font-family: var(--font);
-      cursor: pointer; letter-spacing: 0.3px;
-      transition: opacity .15s, transform .1s var(--spring);
+    .diff-card-gen-btn {
+      margin-top: 8px; width: 100%;
+      padding: 6px 8px;
+      background: var(--bg3); color: var(--text2);
+      border: none; border-radius: 8px;
+      font-size: 11px; font-weight: 600; font-family: var(--font);
+      cursor: pointer;
+      transition: background .12s, transform .1s var(--spring);
       -webkit-tap-highlight-color: transparent;
     }
-    .new-game-btn:active { opacity: 0.85; transform: scale(0.97); }
-    .new-game-btn:disabled { opacity: 0.35; pointer-events: none; }
+    .diff-card-gen-btn:active { transform: scale(0.95); background: var(--bg3); opacity: 0.8; }
+    .diff-card-gen-btn:disabled { opacity: 0.35; pointer-events: none; }
+    .diff-card.not-ready { opacity: 0.6; pointer-events: none; }
 
     /* 統計 */
     .stats-row { display: flex; gap: 12px; }
@@ -207,7 +207,7 @@
       box-shadow: var(--shadow-sm);
     }
     .tool-pill-btn {
-      width: 40px; height: 34px; border-radius: 16px;
+      width: 46px; height: 38px; border-radius: 18px;
       border: none; background: none; cursor: pointer;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 2px; color: var(--text); transition: background .12s, transform .1s var(--spring);
@@ -216,8 +216,8 @@
     .tool-pill-btn:active { transform: scale(0.86); background: var(--bg3); }
     .tool-pill-btn:disabled { opacity: 0.28; pointer-events: none; }
     .tool-pill-btn.active { background: var(--accent-light); }
-    .tool-pill-icon { font-size: 17px; line-height: 1; }
-    .tool-pill-label { font-size: 9px; font-weight: 600; color: var(--text3); line-height: 1; font-family: var(--font); }
+    .tool-pill-icon { font-size: 20px; line-height: 1; }
+    .tool-pill-label { font-size: 10px; font-weight: 600; color: var(--text3); line-height: 1; font-family: var(--font); }
     .tool-pill-btn.active .tool-pill-label { color: var(--accent); }
     /* ピル内セパレータ */
     .tool-pill-sep {
@@ -646,9 +646,6 @@
   <!-- 難易度選択 -->
   <div class="section-label">難易度を選択</div>
   <div class="diff-grid" id="diff-grid"></div>
-
-  <!-- 更新ボタン -->
-  <button class="new-game-btn" id="new-game-btn" onclick="onNewGameBtn()" disabled>🔄 新しい問題を生成</button>
 
   <!-- 統計 -->
   <div class="stats-row">
@@ -1751,22 +1748,66 @@ function calcScore() {
 function playAgain() { startNewGame(state.difficulty); }
 function nextPuzzle() { startNewGame(state.difficulty); }
 
-let selectedDiff = null;
+/* ================================================================
+   PUZZLE POOL
+================================================================ */
+const POOL_TARGET = 20;
+const puzzlePool = { easy:[], normal:[], hard:[], expert:[], insane:[] };
+const poolGenerating = { easy:false, normal:false, hard:false, expert:false, insane:false };
 
-function selectDifficulty(d) {
-  selectedDiff = d;
-  // カードの選択状態を更新
-  document.querySelectorAll('.diff-card').forEach(c => c.classList.remove('selected'));
-  const cards = document.querySelectorAll('.diff-card');
-  const diffs = ['easy','normal','hard','expert','insane'];
-  const idx = diffs.indexOf(d);
-  if (idx >= 0 && cards[idx]) cards[idx].classList.add('selected');
-  // ボタンを有効化
-  document.getElementById('new-game-btn').disabled = false;
+function updatePoolUI(d) {
+  const countEl = document.getElementById('pool-count-'+d);
+  const card = document.getElementById('diff-card-'+d);
+  const genBtn = document.getElementById('gen-btn-'+d);
+  if (!countEl || !card) return;
+  const n = puzzlePool[d].length;
+  const generating = poolGenerating[d];
+  if (generating) {
+    countEl.textContent = `生成中… ${n}/${POOL_TARGET}`;
+    card.classList.add('not-ready');
+    if (genBtn) genBtn.disabled = true;
+  } else {
+    countEl.textContent = `${n}問 準備完了`;
+    card.classList.remove('not-ready');
+    if (genBtn) genBtn.disabled = false;
+  }
 }
 
-function onNewGameBtn() {
-  if (selectedDiff) startNewGame(selectedDiff);
+async function refillPool(d) {
+  if (poolGenerating[d]) return;
+  poolGenerating[d] = true;
+  updatePoolUI(d);
+  while (puzzlePool[d].length < POOL_TARGET) {
+    const p = await generatePuzzle(d);
+    puzzlePool[d].push(p);
+    updatePoolUI(d);
+  }
+  poolGenerating[d] = false;
+  updatePoolUI(d);
+}
+
+async function regenerateDiff(d) {
+  if (poolGenerating[d]) return;
+  puzzlePool[d] = [];
+  updatePoolUI(d);
+  await refillPool(d);
+}
+
+function startFromPool(d) {
+  if (puzzlePool[d].length === 0) return;
+  const puzzle = puzzlePool[d].shift();
+  updatePoolUI(d);
+  // プールが少なくなったら補充
+  if (puzzlePool[d].length < POOL_TARGET / 2) {
+    refillPool(d);
+  }
+  startNewGame(d, puzzle);
+}
+
+async function initPool() {
+  const diffs = ['easy','normal','hard','expert','insane'];
+  // 全難易度を並列で生成開始
+  diffs.forEach(d => refillPool(d));
 }
 
 /* ================================================================
@@ -1784,7 +1825,8 @@ function buildHome() {
   diffs.forEach(d=>{
     const info=DIFFICULTIES[d];
     const card=document.createElement('div');
-    card.className='diff-card'+(d==='insane'?' insane':'');
+    card.id='diff-card-'+d;
+    card.className='diff-card not-ready'+(d==='insane'?' insane':'');
     card.style.borderColor='transparent';
     const best=getBestTime(d);
     card.innerHTML=`
@@ -1792,9 +1834,11 @@ function buildHome() {
       <div class="diff-card-name" style="color:${info.color}">${info.name}</div>
       <div class="diff-card-time">${info.est}</div>
       ${best?`<div class="diff-card-best">🏅 ${best}</div>`:''}
+      <div class="diff-card-pool" id="pool-count-${d}">準備中…</div>
       <div class="diff-card-bar" style="background:${info.gradient}"></div>
+      <button class="diff-card-gen-btn" id="gen-btn-${d}" onclick="event.stopPropagation();regenerateDiff('${d}')" disabled>🔄 新しい問題を生成</button>
     `;
-    card.onclick=()=>selectDifficulty(d);
+    card.onclick=()=>startFromPool(d);
     grid.appendChild(card);
   });
 
@@ -1983,6 +2027,7 @@ function handleUrlParams() {
 ================================================================ */
 window.addEventListener('load',()=>{
   buildHome();
+  initPool();
   if (handleUrlParams()) return;
 
   // 途中セーブ復元チェック
