@@ -212,7 +212,7 @@
     }
     .cell {
       aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
-      font-size: clamp(14px, 4vw, 22px); font-weight: 700;
+      font-size: clamp(16px, 5.2vw, 28px); font-weight: 700;
       cursor: pointer; position: relative; overflow: hidden;
       transition: background .12s var(--ease);
       border-right: 0.5px solid var(--line);
@@ -264,7 +264,7 @@
     .num-btn {
       aspect-ratio: 1; border-radius: 50%; border: none;
       background: var(--bg2); color: var(--text);
-      font-size: clamp(14px, 4vw, 20px); font-weight: 700;
+      font-size: clamp(17px, 5.5vw, 26px); font-weight: 800;
       cursor: pointer; display: flex; align-items: center; justify-content: center;
       box-shadow: var(--shadow-sm); transition: transform .1s var(--spring), background .1s;
       font-family: var(--font);
@@ -437,6 +437,86 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     .loading-text { font-size: 16px; color: var(--text2); font-weight: 600; }
+
+    /* ============================================================
+       クリア演出オーバーレイ
+    ============================================================ */
+    .clear-overlay {
+      position: fixed; inset: 0; z-index: 150;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+
+    /* 背景フラッシュ */
+    .clear-flash {
+      position: absolute; inset: 0;
+      background: radial-gradient(circle at center,
+        rgba(52,120,246,0.35) 0%, transparent 70%);
+      opacity: 0;
+      animation: flash-in .35s ease forwards;
+    }
+    @keyframes flash-in {
+      0%   { opacity: 0; transform: scale(0.8); }
+      50%  { opacity: 1; }
+      100% { opacity: 0; transform: scale(1.3); }
+    }
+
+    /* メインテキスト */
+    .clear-text-wrap {
+      position: relative; display: flex; flex-direction: column;
+      align-items: center; gap: 8px;
+    }
+    .clear-text {
+      font-size: clamp(52px, 18vw, 90px);
+      font-weight: 900; letter-spacing: -2px;
+      background: linear-gradient(135deg, #3478F6 0%, #00c6ff 50%, #30d158 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      opacity: 0;
+      animation: clear-pop .55s cubic-bezier(0.34,1.56,0.64,1) .05s forwards;
+      filter: drop-shadow(0 4px 24px rgba(52,120,246,0.45));
+    }
+    .clear-text.insane {
+      background: linear-gradient(135deg, #bf5af2 0%, #ff375f 50%, #ffd60a 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    @keyframes clear-pop {
+      0%   { opacity: 0; transform: scale(0.3) rotate(-8deg); }
+      60%  { opacity: 1; transform: scale(1.12) rotate(2deg); }
+      80%  { transform: scale(0.96) rotate(-1deg); }
+      100% { opacity: 1; transform: scale(1) rotate(0deg); }
+    }
+
+    /* サブテキスト（タイム） */
+    .clear-subtext {
+      font-size: clamp(18px, 5vw, 28px);
+      font-weight: 800; color: #fff;
+      background: rgba(0,0,0,0.45); padding: 4px 20px;
+      border-radius: 40px; letter-spacing: 1px;
+      opacity: 0;
+      animation: slide-up .4s ease .45s forwards;
+      backdrop-filter: blur(8px);
+    }
+    @keyframes slide-up {
+      0%   { opacity: 0; transform: translateY(16px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    /* リング波紋エフェクト */
+    .clear-ring {
+      position: absolute;
+      width: 120px; height: 120px; border-radius: 50%;
+      border: 3px solid rgba(52,120,246,0.6);
+      opacity: 0;
+      animation: ring-expand .7s ease forwards;
+    }
+    .clear-ring:nth-child(2) { animation-delay: .15s; border-color: rgba(48,209,88,0.5); }
+    .clear-ring:nth-child(3) { animation-delay: .3s;  border-color: rgba(255,214,10,0.4); }
+    @keyframes ring-expand {
+      0%   { opacity: 0.9; transform: scale(0.3); }
+      100% { opacity: 0;   transform: scale(4.5); }
+    }
 
     /* IMPORT SHEET */
     .import-sheet {
@@ -652,6 +732,18 @@
 <div class="loading-overlay" id="loading">
   <div class="spinner"></div>
   <div class="loading-text">パズルを生成中...</div>
+</div>
+
+<!-- クリア演出オーバーレイ -->
+<div class="clear-overlay" id="clear-overlay" style="display:none">
+  <div class="clear-flash"></div>
+  <div class="clear-text-wrap">
+    <div class="clear-ring"></div>
+    <div class="clear-ring"></div>
+    <div class="clear-ring"></div>
+    <div class="clear-text" id="clear-text">クリア！</div>
+    <div class="clear-subtext" id="clear-subtext">0:00</div>
+  </div>
 </div>
 
 <!-- Confetti -->
@@ -1413,14 +1505,39 @@ function handleComplete() {
   state.status='completed';
   stopTimer();
   state.cells.forEach(c=>{ if(!c.given&&c.state!=='hint') c.state='correct'; });
+  renderBoard();
   saveRecord();
   clearSave();
   haptic('heavy');
-  setTimeout(()=>{
+
+  // クリア演出を表示
+  showClearAnimation();
+}
+
+function showClearAnimation() {
+  const overlay = document.getElementById('clear-overlay');
+  const text    = document.getElementById('clear-text');
+  const subtext = document.getElementById('clear-subtext');
+  const isInsane = state.difficulty === 'insane';
+
+  // テキストと色をセット
+  text.textContent = isInsane ? '🏆 鬼難問\nクリア！' : 'クリア！';
+  text.className   = 'clear-text' + (isInsane ? ' insane' : '');
+  subtext.textContent = formatTime(state.elapsed);
+
+  // アニメーションをリセットしてから表示
+  overlay.style.display = 'flex';
+  void overlay.offsetWidth; // reflow
+
+  // コンフェッティ
+  if (isInsane) fireConfetti(80);
+  else fireConfetti(40);
+
+  // 一定時間後にリザルト画面へ遷移
+  setTimeout(() => {
+    overlay.style.display = 'none';
     showResult();
-    if (state.difficulty==='insane') fireConfetti(80);
-    else fireConfetti(40);
-  }, 800);
+  }, 2200);
 }
 
 function gameFail() {
