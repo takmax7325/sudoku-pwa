@@ -708,7 +708,7 @@
         <div class="timer-value" id="timer-val" onclick="toggleTimerPause()">0:00<span class="timer-pause-icon" id="pause-icon" style="display:none">⏸</span></div>
         <div class="timer-hint" id="timer-hint">▶ タップでスタート</div>
       </div>
-      <div class="timer-badge" id="diff-badge">ふつう</div>
+      <div class="timer-badge" id="diff-badge">むずかしい</div>
     </div>
     <div class="board-wrap">
       <div class="board" id="board"></div>
@@ -776,9 +776,7 @@
     <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">81マスに数字を入力（空きは0か空欄）</p>
     <div class="import-input-grid" id="import-grid"></div>
     <select id="import-diff" style="width:100%;height:44px;border-radius:10px;border:1px solid var(--bg3);background:var(--bg2);color:var(--text);font-size:15px;padding:0 12px;margin-bottom:8px;font-family:var(--font)">
-      <option value="easy">かんたん</option>
-      <option value="normal" selected>ふつう</option>
-      <option value="hard">むずかしい</option>
+      <option value="hard" selected>むずかしい</option>
       <option value="expert">エキスパート</option>
       <option value="insane">鬼難問</option>
     </select>
@@ -2079,8 +2077,6 @@ async function generateInsanePuzzle(maxAttempts = 2000) {
    GAME STATE
 ================================================================ */
 const DIFFICULTIES = {
-  easy:   {name:'かんたん', est:'3〜10分',  color:'#30d158', gradient:'linear-gradient(135deg,#30d158,#00b377)', icon:'😊', min:[3,10]},
-  normal: {name:'ふつう',   est:'10〜25分', color:'#3478F6', gradient:'linear-gradient(135deg,#3478F6,#0a9fcc)', icon:'🧠', min:[10,25]},
   hard:   {name:'むずかしい',est:'20〜45分', color:'#ff9500', gradient:'linear-gradient(135deg,#ff9500,#ff6b00)', icon:'🔥', min:[20,45]},
   expert: {name:'エキスパート',est:'35〜70分',color:'#ff3b30', gradient:'linear-gradient(135deg,#ff3b30,#ff6b00)', icon:'⚡', min:[35,70]},
   insane: {name:'鬼難問',   est:'50〜100分',color:'#8e44ad', gradient:'linear-gradient(135deg,#8e44ad,#c0392b)', icon:'💀', min:[50,100]},
@@ -2089,7 +2085,7 @@ const DIFFICULTIES = {
 let state = {
   puzzle: null,        // {grid, solution}
   cells: [],           // [{value, given, candidates, state}]
-  difficulty: 'normal',
+  difficulty: 'hard',
   status: 'idle',      // idle|playing|paused|completed|failed
   elapsed: 0,
   selected: -1,
@@ -2480,12 +2476,11 @@ function goHome() {
   if (state.status==='playing') { state.status='paused'; }
   stopTimer();
   showScreen('home');
-  updateHomeStats();
   updateContinueBtn();
 }
 
 function updateContinueBtn() {
-  const diffs=['easy','normal','hard','expert','insane'];
+  const diffs=['hard','expert','insane'];
   const active = (state.status==='idle'||state.status==='playing'||state.status==='paused') && state.puzzle;
   diffs.forEach(d=>{
     const btn = document.getElementById('continue-btn-'+d);
@@ -2553,8 +2548,8 @@ function nextPuzzle() { startFromPool(state.difficulty); }
 ================================================================ */
 const POOL_TARGET = 10;
 // puzzlePool[d] = [{puzzle:{grid,solution}, completed:false}, ...]
-const puzzlePool = { easy:[], normal:[], hard:[], expert:[], insane:[] };
-const poolGenerating = { easy:false, normal:false, hard:false, expert:false, insane:false };
+const puzzlePool = { hard:[], expert:[], insane:[] };
+const poolGenerating = { hard:false, expert:false, insane:false };
 
 /* --- localStorage 永続化 --- */
 function savePool() {
@@ -2565,7 +2560,7 @@ function loadPool() {
     const raw = localStorage.getItem('sudoku_pool');
     if (!raw) return false;
     const data = JSON.parse(raw);
-    const diffs = ['easy','normal','hard','expert','insane'];
+    const diffs = ['hard','expert','insane'];
     let loaded = false;
     diffs.forEach(d => {
       if (Array.isArray(data[d]) && data[d].length > 0) {
@@ -2693,7 +2688,7 @@ function updatePuzzleMenuBadge() {
 }
 
 async function initPool() {
-  const diffs = ['easy','normal','hard','expert','insane'];
+  const diffs = ['hard','expert','insane'];
   const hadSaved = loadPool();
   if (hadSaved) {
     // 保存済みプールを復元 → UIを更新するだけ
@@ -2711,7 +2706,7 @@ function buildHome() {
   // 難易度グリッド
   const grid=document.getElementById('diff-grid');
   grid.innerHTML='';
-  const diffs=['easy','normal','hard','expert','insane'];
+  const diffs=['hard','expert','insane'];
   diffs.forEach(d=>{
     const info=DIFFICULTIES[d];
     const card=document.createElement('div');
@@ -2733,17 +2728,7 @@ function buildHome() {
     grid.appendChild(card);
   });
 
-  updateHomeStats();
   updateContinueBtn();
-}
-
-function updateHomeStats() {
-  const records=loadRecords();
-  document.getElementById('stat-total').textContent=records.length;
-  const normalBest=getBestTime('normal');
-  document.getElementById('stat-best').textContent=normalBest||'---';
-  document.getElementById('stat-s').textContent=records.filter(r=>r.score==='S').length;
-
 }
 
 function getBestTime(difficulty) {
