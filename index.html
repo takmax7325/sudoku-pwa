@@ -164,15 +164,6 @@
     .diff-card-gen-btn:disabled { opacity: 0.35; pointer-events: none; }
     .diff-card.not-ready { opacity: 0.6; pointer-events: none; }
 
-    /* 統計 */
-    .stats-row { display: flex; gap: 12px; }
-    .stat-card {
-      flex: 1; background: var(--bg2); border-radius: var(--radius-sm);
-      padding: 14px 10px; text-align: center; box-shadow: var(--shadow-sm);
-    }
-    .stat-icon { font-size: 20px; }
-    .stat-val  { font-size: 20px; font-weight: 800; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
-    .stat-label{ font-size: 11px; color: var(--text2); }
 
     /* ============================================================
        GAME SCREEN
@@ -688,25 +679,6 @@
   <!-- 難易度選択 -->
   <div class="section-label">難易度を選択</div>
   <div class="diff-grid" id="diff-grid"></div>
-
-  <!-- 統計 -->
-  <div class="stats-row">
-    <div class="stat-card">
-      <div class="stat-icon">✅</div>
-      <div class="stat-val" id="stat-total">0</div>
-      <div class="stat-label">クリア数</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon">⏱</div>
-      <div class="stat-val" id="stat-best">---</div>
-      <div class="stat-label">ベスト(普通)</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon">⭐</div>
-      <div class="stat-val" id="stat-s">0</div>
-      <div class="stat-label">Sランク</div>
-    </div>
-  </div>
 </div>
 
 <!-- ===== GAME SCREEN ===== -->
