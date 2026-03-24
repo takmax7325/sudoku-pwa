@@ -126,9 +126,22 @@
     .diff-card-icon { font-size: 26px; margin-bottom: 6px; }
     .diff-card-name { font-size: 18px; font-weight: 700; }
     .diff-card-time { font-size: 13px; color: var(--text2); margin-top: 2px; }
-    .diff-card-best {
-      position: absolute; top: 14px; right: 16px;
-      font-size: 12px; color: var(--text3); font-variant-numeric: tabular-nums;
+    .diff-card-remaining {
+      position: absolute; top: 14px; right: 14px;
+      display: flex; flex-direction: column; align-items: center;
+      background: var(--bg3); border-radius: 12px;
+      padding: 5px 10px; gap: 1px;
+    }
+    .diff-card-remaining-num {
+      font-size: 18px; font-weight: 900; line-height: 1;
+      font-variant-numeric: tabular-nums;
+      background: var(--card-gradient, var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .diff-card-remaining-lbl {
+      font-size: 9px; font-weight: 600; color: var(--text3);
+      letter-spacing: 0.5px; line-height: 1;
     }
     .diff-card-bar {
       height: 3px; border-radius: 2px; margin-top: 12px;
@@ -2682,14 +2695,18 @@ function updatePoolUI(d) {
   const total = puzzlePool[d].length;
   const done = puzzlePool[d].filter(e => e.completed).length;
   const generating = poolGenerating[d];
+  const remaining = total - done;
+  const remainingEl = document.getElementById('remaining-num-'+d);
   if (generating) {
     countEl.textContent = `生成中… ${total}/${POOL_TARGET}`;
     card.classList.add('not-ready');
     if (genBtn) genBtn.disabled = true;
+    if (remainingEl) remainingEl.textContent = '…';
   } else {
     countEl.textContent = done > 0 ? `${done}/${total} クリア済` : `${total}問 準備完了`;
     card.classList.remove('not-ready');
     if (genBtn) genBtn.disabled = false;
+    if (remainingEl) remainingEl.textContent = remaining;
   }
 }
 
@@ -2825,12 +2842,15 @@ function buildHome() {
     card.id='diff-card-'+d;
     card.className='diff-card not-ready'+(d==='insane'?' insane':'');
     card.style.borderColor='transparent';
-    const best=getBestTime(d);
+    card.style.setProperty('--card-gradient', info.gradient);
     card.innerHTML=`
       <div class="diff-card-icon">${info.icon}</div>
       <div class="diff-card-name" style="color:${info.color}">${info.name}</div>
       <div class="diff-card-time">${info.est}</div>
-      ${best?`<div class="diff-card-best">🏅 ${best}</div>`:''}
+      <div class="diff-card-remaining" id="remaining-${d}">
+        <div class="diff-card-remaining-num" id="remaining-num-${d}" style="background:${info.gradient};-webkit-background-clip:text;background-clip:text;">—</div>
+        <div class="diff-card-remaining-lbl">残り問題</div>
+      </div>
       <div class="diff-card-pool" id="pool-count-${d}">準備中…</div>
       <div class="diff-card-bar" style="background:${info.gradient}"></div>
       <button class="diff-card-continue-btn" id="continue-btn-${d}" onclick="event.stopPropagation();resumeCurrentGame('${d}')">▶ 問題に戻る</button>
