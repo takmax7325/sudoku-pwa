@@ -2510,11 +2510,17 @@ function updateContinueBtn() {
   const active = (state.status==='idle'||state.status==='playing'||state.status==='paused') && state.puzzle;
   diffs.forEach(d=>{
     const btn = document.getElementById('continue-btn-'+d);
+    const card = document.getElementById('diff-card-'+d);
     if (!btn) return;
-    if (active && state.difficulty===d) {
+    const hasContinue = active && state.difficulty===d;
+    if (hasContinue) {
       btn.classList.add('show');
+      // カード全体クリック（プール開始）を無効化
+      if (card) card.onclick = null;
     } else {
       btn.classList.remove('show');
+      // カード全体クリックを復元
+      if (card) card.onclick = ()=>startFromPool(d);
     }
   });
 }
