@@ -2510,16 +2510,12 @@ function updateContinueBtn() {
   const active = (state.status==='idle'||state.status==='playing'||state.status==='paused') && state.puzzle;
   diffs.forEach(d=>{
     const btn = document.getElementById('continue-btn-'+d);
-    const genBtn = document.getElementById('gen-btn-'+d);
     if (!btn) return;
-    const hasContinue = active && state.difficulty===d;
-    if (hasContinue) {
+    if (active && state.difficulty===d) {
       btn.classList.add('show');
     } else {
       btn.classList.remove('show');
     }
-    // 「問題に戻る」があるときは「新しい問題を生成」を無効化
-    if (genBtn) genBtn.disabled = hasContinue || poolGenerating[d] || puzzlePool[d].length === 0;
   });
 }
 
