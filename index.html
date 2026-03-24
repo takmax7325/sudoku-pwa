@@ -230,7 +230,11 @@
       letter-spacing: 0.2px;
       align-self: center;
     }
-    .timer-est    { display: none; }
+    .timer-est {
+      position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+      font-size: 11px; font-weight: 600; color: var(--text3);
+      line-height: 1.4; text-align: center;
+    }
     .timer-mistakes { display: none; }
     .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bg3); transition: background .3s; }
     .dot.active { background: var(--red); }
@@ -1282,11 +1286,11 @@ function solveGrid(grid) {
 ================================================================ */
 const MAX_MISTAKES = 3;
 const DIFFICULTIES = {
-  easy:   {name:'かんたん', est:'5〜15分',  color:'#30d158', gradient:'linear-gradient(135deg,#30d158,#00b377)', icon:'😊', min:[5,15]},
-  normal: {name:'ふつう',   est:'15〜30分', color:'#3478F6', gradient:'linear-gradient(135deg,#3478F6,#0a9fcc)', icon:'🧠', min:[15,30]},
-  hard:   {name:'むずかしい',est:'30〜60分', color:'#ff9500', gradient:'linear-gradient(135deg,#ff9500,#ff6b00)', icon:'🔥', min:[30,60]},
-  expert: {name:'エキスパート',est:'45〜90分',color:'#ff3b30', gradient:'linear-gradient(135deg,#ff3b30,#ff6b00)', icon:'⚡', min:[45,90]},
-  insane: {name:'鬼難問',   est:'60〜120分',color:'#8e44ad', gradient:'linear-gradient(135deg,#8e44ad,#c0392b)', icon:'💀', min:[60,120]},
+  easy:   {name:'かんたん', est:'3〜10分',  color:'#30d158', gradient:'linear-gradient(135deg,#30d158,#00b377)', icon:'😊', min:[3,10]},
+  normal: {name:'ふつう',   est:'10〜25分', color:'#3478F6', gradient:'linear-gradient(135deg,#3478F6,#0a9fcc)', icon:'🧠', min:[10,25]},
+  hard:   {name:'むずかしい',est:'20〜45分', color:'#ff9500', gradient:'linear-gradient(135deg,#ff9500,#ff6b00)', icon:'🔥', min:[20,45]},
+  expert: {name:'エキスパート',est:'35〜70分',color:'#ff3b30', gradient:'linear-gradient(135deg,#ff3b30,#ff6b00)', icon:'⚡', min:[35,70]},
+  insane: {name:'鬼難問',   est:'50〜100分',color:'#8e44ad', gradient:'linear-gradient(135deg,#8e44ad,#c0392b)', icon:'💀', min:[50,100]},
 };
 
 let state = {
