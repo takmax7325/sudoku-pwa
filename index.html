@@ -239,6 +239,62 @@
       width: 1px; height: 18px; background: var(--bg3); margin: 0 2px; flex-shrink: 0;
     }
 
+    /* パズル選択メニュー */
+    .puzzle-menu-btn {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--bg2); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; color: var(--text); flex-shrink: 0;
+      position: relative;
+    }
+    .puzzle-menu-badge {
+      position: absolute; top: 2px; right: 2px;
+      font-size: 8px; font-weight: 800; color: #fff;
+      background: var(--accent); border-radius: 6px;
+      min-width: 14px; height: 14px; line-height: 14px;
+      text-align: center; padding: 0 3px;
+    }
+    .puzzle-menu-dropdown {
+      display: none; position: absolute;
+      top: 44px; right: 0; z-index: 100;
+      background: var(--bg); border-radius: 14px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+      padding: 10px; min-width: 210px;
+    }
+    .puzzle-menu-dropdown.show { display: block; }
+    .puzzle-menu-title {
+      font-size: 12px; font-weight: 700; color: var(--text2);
+      padding: 2px 6px 8px; border-bottom: 1px solid var(--bg3);
+      margin-bottom: 8px;
+    }
+    .puzzle-menu-grid {
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+    }
+    .puzzle-menu-item {
+      width: 34px; height: 34px; border-radius: 10px;
+      border: 2px solid var(--bg3);
+      background: var(--bg2); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: var(--text);
+      font-family: var(--font);
+      transition: transform .1s, border-color .12s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .puzzle-menu-item:active { transform: scale(0.9); }
+    .puzzle-menu-item.current {
+      border-color: var(--accent); background: var(--accent-light); color: var(--accent);
+    }
+    .puzzle-menu-item.completed {
+      text-decoration: line-through; color: var(--text3); opacity: 0.55;
+    }
+    .puzzle-menu-item.empty {
+      opacity: 0.25; pointer-events: none;
+    }
+    .puzzle-menu-overlay {
+      display: none; position: fixed; inset: 0; z-index: 99;
+    }
+    .puzzle-menu-overlay.show { display: block; }
+
     /* タイマー */
     .timer-area {
       width: 100%;
@@ -702,7 +758,18 @@
         <span class="tool-pill-label">ヒント</span>
       </button>
     </div>
+    <div style="position:relative">
+      <button class="puzzle-menu-btn" onclick="togglePuzzleMenu()">
+        ☰
+        <span class="puzzle-menu-badge" id="puzzle-menu-badge">1</span>
+      </button>
+      <div class="puzzle-menu-dropdown" id="puzzle-menu-dropdown">
+        <div class="puzzle-menu-title" id="puzzle-menu-title">問題一覧</div>
+        <div class="puzzle-menu-grid" id="puzzle-menu-grid"></div>
+      </div>
+    </div>
   </div>
+  <div class="puzzle-menu-overlay" id="puzzle-menu-overlay" onclick="closePuzzleMenu()"></div>
   <div class="game-content">
     <div class="timer-area">
       <div class="timer-est" id="timer-est"></div>
@@ -1346,6 +1413,7 @@ let state = {
   currentHint: null,
   undoStack: [],
   timerInterval: null,
+  poolIndex: -1,       // 現在プレイ中のプール内インデックス
 };
 
 /* ================================================================
@@ -1561,6 +1629,7 @@ function handleComplete() {
   stopTimer();
   state.cells.forEach(c=>{ if(!c.given&&c.state!=='hint') c.state='correct'; });
   renderBoard();
+  markPoolCompleted();
   saveRecord();
   clearSave();
   haptic('heavy');
@@ -1784,29 +1853,35 @@ function calcScore() {
   return 'C';
 }
 
-function playAgain() { startNewGame(state.difficulty); }
-function nextPuzzle() { startNewGame(state.difficulty); }
+function playAgain() { startFromPool(state.difficulty); }
+function nextPuzzle() { startFromPool(state.difficulty); }
 
 /* ================================================================
    PUZZLE POOL
 ================================================================ */
 const POOL_TARGET = 20;
+// puzzlePool[d] = [{puzzle:{grid,solution}, completed:false}, ...]
 const puzzlePool = { easy:[], normal:[], hard:[], expert:[], insane:[] };
 const poolGenerating = { easy:false, normal:false, hard:false, expert:false, insane:false };
+
+function poolReadyCount(d) {
+  return puzzlePool[d].filter(e => !e.completed).length;
+}
 
 function updatePoolUI(d) {
   const countEl = document.getElementById('pool-count-'+d);
   const card = document.getElementById('diff-card-'+d);
   const genBtn = document.getElementById('gen-btn-'+d);
   if (!countEl || !card) return;
-  const n = puzzlePool[d].length;
+  const total = puzzlePool[d].length;
+  const done = puzzlePool[d].filter(e => e.completed).length;
   const generating = poolGenerating[d];
   if (generating) {
-    countEl.textContent = `生成中… ${n}/${POOL_TARGET}`;
+    countEl.textContent = `生成中… ${total}/${POOL_TARGET}`;
     card.classList.add('not-ready');
     if (genBtn) genBtn.disabled = true;
   } else {
-    countEl.textContent = `${n}問 準備完了`;
+    countEl.textContent = done > 0 ? `${done}/${total} クリア済` : `${total}問 準備完了`;
     card.classList.remove('not-ready');
     if (genBtn) genBtn.disabled = false;
   }
@@ -1818,7 +1893,7 @@ async function refillPool(d) {
   updatePoolUI(d);
   while (puzzlePool[d].length < POOL_TARGET) {
     const p = await generatePuzzle(d);
-    puzzlePool[d].push(p);
+    puzzlePool[d].push({ puzzle: p, completed: false });
     updatePoolUI(d);
   }
   poolGenerating[d] = false;
@@ -1832,20 +1907,78 @@ async function regenerateDiff(d) {
   await refillPool(d);
 }
 
-function startFromPool(d) {
-  if (puzzlePool[d].length === 0) return;
-  const puzzle = puzzlePool[d].shift();
-  updatePoolUI(d);
-  // プールが少なくなったら補充
-  if (puzzlePool[d].length < POOL_TARGET / 2) {
-    refillPool(d);
+function startFromPool(d, idx) {
+  if (idx === undefined) {
+    // 最初の未クリア問題を選択
+    idx = puzzlePool[d].findIndex(e => !e.completed);
+    if (idx === -1) return;
   }
-  startNewGame(d, puzzle);
+  const entry = puzzlePool[d][idx];
+  if (!entry || entry.completed) return;
+  state.poolIndex = idx;
+  startNewGame(d, entry.puzzle);
+}
+
+function markPoolCompleted() {
+  const d = state.difficulty;
+  const idx = state.poolIndex;
+  if (idx >= 0 && puzzlePool[d] && puzzlePool[d][idx]) {
+    puzzlePool[d][idx].completed = true;
+    updatePoolUI(d);
+  }
+}
+
+/* パズル選択メニュー */
+function togglePuzzleMenu() {
+  const dd = document.getElementById('puzzle-menu-dropdown');
+  const ov = document.getElementById('puzzle-menu-overlay');
+  const isOpen = dd.classList.contains('show');
+  if (isOpen) { closePuzzleMenu(); return; }
+  buildPuzzleMenuGrid();
+  dd.classList.add('show');
+  ov.classList.add('show');
+}
+
+function closePuzzleMenu() {
+  document.getElementById('puzzle-menu-dropdown').classList.remove('show');
+  document.getElementById('puzzle-menu-overlay').classList.remove('show');
+}
+
+function buildPuzzleMenuGrid() {
+  const grid = document.getElementById('puzzle-menu-grid');
+  const title = document.getElementById('puzzle-menu-title');
+  const d = state.difficulty;
+  const info = DIFFICULTIES[d];
+  const pool = puzzlePool[d];
+  title.textContent = `${info.name} — 問題一覧`;
+  grid.innerHTML = '';
+  for (let i = 0; i < POOL_TARGET; i++) {
+    const item = document.createElement('button');
+    item.className = 'puzzle-menu-item';
+    item.textContent = i + 1;
+    if (i >= pool.length) {
+      item.classList.add('empty');
+    } else if (pool[i].completed) {
+      item.classList.add('completed');
+      item.onclick = null;
+      item.style.pointerEvents = 'none';
+    } else if (i === state.poolIndex) {
+      item.classList.add('current');
+      item.onclick = () => { closePuzzleMenu(); };
+    } else {
+      item.onclick = () => { closePuzzleMenu(); startFromPool(d, i); };
+    }
+    grid.appendChild(item);
+  }
+}
+
+function updatePuzzleMenuBadge() {
+  const badge = document.getElementById('puzzle-menu-badge');
+  if (badge && state.poolIndex >= 0) badge.textContent = state.poolIndex + 1;
 }
 
 async function initPool() {
   const diffs = ['easy','normal','hard','expert','insane'];
-  // 全難易度を並列で生成開始
   diffs.forEach(d => refillPool(d));
 }
 
@@ -1945,6 +2078,7 @@ async function startNewGame(difficulty, puzzle=null) {
   if (puzzle) {
     initState(puzzle, difficulty);
     buildBoard(); renderBoard(); renderTimer(); renderTimerState();
+    updatePuzzleMenuBadge();
     return;
   }
 
@@ -1953,6 +2087,7 @@ async function startNewGame(difficulty, puzzle=null) {
   const p = await generatePuzzle(difficulty);
   initState(p, difficulty);
   buildBoard(); renderBoard(); renderTimer(); renderTimerState();
+  updatePuzzleMenuBadge();
   document.getElementById('loading').classList.remove('show');
 }
 
