@@ -71,6 +71,7 @@
     ============================================================ */
     .screen { display: none; flex-direction: column; height: 100dvh; width: 100%; }
     .screen.active { display: flex; }
+    #game.active { justify-content: center; align-items: center; }
 
     /* ============================================================
        HOME SCREEN
@@ -251,9 +252,6 @@
       font-size: 11px; font-weight: 600; color: var(--text3);
       line-height: 1.5; text-align: right; white-space: nowrap;
     }
-    .timer-mistakes { display: none; }
-    .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bg3); transition: background .3s; }
-    .dot.active { background: var(--red); }
 
     /* ボード */
     .board-wrap {
@@ -700,7 +698,6 @@
     </div>
     <div class="timer-badge" id="diff-badge">ふつう</div>
   </div>
-  <div id="mistake-dots" style="display:none"></div>
   <div class="board-wrap">
     <div class="board" id="board"></div>
   </div>
@@ -733,13 +730,8 @@
       <div class="result-stat-val" id="res-hints">0</div>
       <div class="result-stat-lbl">ヒント使用</div>
     </div>
-    <div class="result-stat">
-      <div class="result-stat-icon">✕</div>
-      <div class="result-stat-val" id="res-mistakes">0</div>
-      <div class="result-stat-lbl">ミス回数</div>
-    </div>
   </div>
-  <button class="result-btn-again" onclick="playAgain()">もう一度</button>
+  <button class="result-btn-again" onclick="nextPuzzle()">次の問題へ</button>
   <button class="result-btn-home"  onclick="goHome()">ホームに戻る</button>
 </div>
 
@@ -1320,7 +1312,6 @@ function solveGrid(grid) {
 /* ================================================================
    GAME STATE
 ================================================================ */
-const MAX_MISTAKES = 3;
 const DIFFICULTIES = {
   easy:   {name:'かんたん', est:'3〜10分',  color:'#30d158', gradient:'linear-gradient(135deg,#30d158,#00b377)', icon:'😊', min:[3,10]},
   normal: {name:'ふつう',   est:'10〜25分', color:'#3478F6', gradient:'linear-gradient(135deg,#3478F6,#0a9fcc)', icon:'🧠', min:[10,25]},
@@ -1337,7 +1328,6 @@ let state = {
   elapsed: 0,
   selected: -1,
   hints: 0,
-  mistakes: 0,
   isMemo: false,
   currentHint: null,
   undoStack: [],
@@ -1353,7 +1343,7 @@ function saveGame() {
   if (state.status==='completed'||state.status==='idle') return;
   localStorage.setItem('sudoku_save', JSON.stringify({
     puzzle:state.puzzle, cells:state.cells, difficulty:state.difficulty,
-    elapsed:state.elapsed, hints:state.hints, mistakes:state.mistakes
+    elapsed:state.elapsed, hints:state.hints
   }));
 }
 function loadGame() { try { return JSON.parse(localStorage.getItem('sudoku_save')); } catch { return null; } }
@@ -1408,7 +1398,6 @@ function renderBoard() {
     }
   }
   renderNumpad();
-  renderMistakes();
 }
 
 function getHighlightClass(i) {
@@ -1445,15 +1434,6 @@ function renderNumpad() {
   });
 }
 
-function renderMistakes() {
-  const dots = document.getElementById('mistake-dots');
-  dots.innerHTML = '';
-  for (let i = 0; i < MAX_MISTAKES; i++) {
-    const d = document.createElement('div');
-    d.className = 'dot' + (i < state.mistakes ? ' active' : '');
-    dots.appendChild(d);
-  }
-}
 
 function renderTimer() {
   const el = document.getElementById('timer-val');
@@ -1477,7 +1457,6 @@ function initState(puzzle, difficulty) {
   state.elapsed = 0;
   state.selected = -1;
   state.hints = 0;
-  state.mistakes = 0;
   state.isMemo = false;
   state.currentHint = null;
   state.undoStack = [];
@@ -1534,10 +1513,8 @@ function inputNumber(n) {
     removeCandidateFromPeers(state.selected, n);
   } else {
     sel.state='error';
-    state.mistakes++;
     haptic('error');
     shakeCell(state.selected);
-    if (state.mistakes>=MAX_MISTAKES) { gameFail(); return; }
   }
 
   renderBoard();
@@ -1622,12 +1599,6 @@ function showClearAnimation() {
   }, 2200);
 }
 
-function gameFail() {
-  state.status='failed';
-  stopTimer();
-  haptic('heavy');
-  alert('ミスが多すぎます！\nゲームオーバー');
-}
 
 function pauseGame() {
   if (state.status!=='playing') return;
@@ -1777,7 +1748,6 @@ function showResult() {
   document.getElementById('res-time2').textContent=formatTime(state.elapsed);
   document.getElementById('res-est').textContent=diff.est;
   document.getElementById('res-hints').textContent=state.hints;
-  document.getElementById('res-mistakes').textContent=state.mistakes;
 
   showScreen('result');
 }
@@ -1786,7 +1756,7 @@ function calcScore() {
   const diff=DIFFICULTIES[state.difficulty];
   const target=diff.min[0]*60;
   const timeRatio=state.elapsed/target;
-  const penalty=state.hints*10+state.mistakes*5;
+  const penalty=state.hints*10;
   const raw=Math.max(0,100-penalty-(timeRatio-1)*20);
   if (raw>=90) return 'S';
   if (raw>=70) return 'A';
@@ -1795,6 +1765,7 @@ function calcScore() {
 }
 
 function playAgain() { startNewGame(state.difficulty); }
+function nextPuzzle() { startNewGame(state.difficulty); }
 
 let selectedDiff = null;
 
@@ -1869,7 +1840,7 @@ function saveRecord() {
   const records=loadRecords();
   records.unshift({
     difficulty:state.difficulty, elapsed:state.elapsed,
-    hints:state.hints, mistakes:state.mistakes, score:calcScore(),
+    hints:state.hints, score:calcScore(),
     date:new Date().toISOString(), dailyKey:getTodayKey()
   });
   saveRecords(records.slice(0,200));
@@ -2039,7 +2010,6 @@ window.addEventListener('load',()=>{
       state.difficulty=saved.difficulty;
       state.elapsed=saved.elapsed;
       state.hints=saved.hints;
-      state.mistakes=saved.mistakes;
       state.cells=saved.cells.map(c=>({...c,candidates:new Set(c.candidates)}));
       state.status='paused';
       showScreen('game');
