@@ -62,7 +62,7 @@
     html, body {
       height: 100%; width: 100%;
       font-family: var(--font);
-      background: var(--bg);
+      background: transparent;
       color: var(--text);
       overflow: hidden;
       -webkit-tap-highlight-color: transparent;
@@ -95,8 +95,13 @@
       display: flex; align-items: flex-end; justify-content: space-between;
       padding-top: 12px; padding-bottom: 8px;
       position: sticky; top: 0;
-      background: var(--bg);
+      background: rgba(255,255,255,0.82);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       z-index: 10;
+    }
+    @media (prefers-color-scheme: dark) {
+      .home-header { background: rgba(28,28,30,0.82); }
     }
     .home-title { font-size: 38px; font-weight: 900; letter-spacing: -1px; }
     .home-subtitle { font-size: 12px; font-weight: 600; letter-spacing: 4px; color: var(--text2); }
