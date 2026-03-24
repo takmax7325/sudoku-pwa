@@ -91,6 +91,59 @@ const DIFF_MAX_ATTEMPTS = {
 };
 
 /**
+ * ナケッドシングルだけで解けるか高速チェック（ビット演算）
+ * easy 高速生成専用。solveLogically より大幅に速い。
+ */
+function _fastNakedSingle(puzzle) {
+  const g = [...puzzle];
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let i = 0; i < 81; i++) {
+      if (g[i] !== 0) continue;
+      const r = ~~(i / 9), c = i % 9, b = ~~(r / 3) * 3 + ~~(c / 3);
+      let mask = 0;
+      for (let j = 0; j < 9; j++) {
+        if (g[r * 9 + j]) mask |= 1 << (g[r * 9 + j] - 1);
+        if (g[j * 9 + c]) mask |= 1 << (g[j * 9 + c] - 1);
+        const br = ~~(b / 3) * 3 + ~~(j / 3), bc = (b % 3) * 3 + (j % 3);
+        if (g[br * 9 + bc]) mask |= 1 << (g[br * 9 + bc] - 1);
+      }
+      const possible = (~mask) & 0x1ff;
+      if (!possible) return false;
+      if (!(possible & (possible - 1))) { // ビットが1つだけ
+        g[i] = 32 - Math.clz32(possible);
+        changed = true;
+      }
+    }
+  }
+  return g.every(x => x !== 0);
+}
+
+/**
+ * easy 専用高速生成（構築的アプローチ・再試行ゼロ）
+ * ナケッドシングルで解ける制約のみセルを削除するため、
+ * 常に1回目の試行で完了する。
+ */
+async function generateEasyFast(rng) {
+  const solution = generateFullSolution(rng);
+  const puzzle = [...solution];
+  const indices = shuffle(Array.from({ length: 81 }, (_, i) => i), rng);
+
+  for (let i = 0; i < indices.length; i++) {
+    if (i % 20 === 19) await new Promise(r => setTimeout(r, 0));
+    const idx = indices[i];
+    const backup = puzzle[idx];
+    puzzle[idx] = 0;
+    // 一意解 かつ ナケッドシングルで完全に解ける場合のみ削除を維持
+    if (!hasUniqueSolution(puzzle) || !_fastNakedSingle(puzzle)) {
+      puzzle[idx] = backup;
+    }
+  }
+  return { grid: puzzle, solution };
+}
+
+/**
  * 問題を生成する（メインAPI）
  *
  * 手順:
@@ -105,6 +158,10 @@ const DIFF_MAX_ATTEMPTS = {
  */
 async function generatePuzzle(difficulty, seed = null) {
   const rng = seed !== null ? seededRng(seed) : Math.random.bind(Math);
+
+  // easy は高速構築的アプローチ（再試行ゼロ）
+  if (difficulty === 'easy') return generateEasyFast(rng);
+
   const minClues = DIFF_MIN_CLUES[difficulty] ?? 26;
   const maxAttempts = DIFF_MAX_ATTEMPTS[difficulty] ?? 300;
 
