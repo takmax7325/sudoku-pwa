@@ -2114,13 +2114,65 @@ function saveRecords(records) { localStorage.setItem('sudoku_records', JSON.stri
 function loadRecords() { try { return JSON.parse(localStorage.getItem('sudoku_records'))||[]; } catch { return []; } }
 function saveGame() {
   if (state.status==='completed'||state.status==='idle') return;
-  localStorage.setItem('sudoku_save', JSON.stringify({
-    puzzle:state.puzzle, cells:state.cells, difficulty:state.difficulty,
-    elapsed:state.elapsed, hints:state.hints
-  }));
+  // 難易度ごとに個別保存
+  const d = state.difficulty;
+  const data = {
+    puzzle:state.puzzle, cells:state.cells, difficulty:d,
+    elapsed:state.elapsed, hints:state.hints, poolIndex:state.poolIndex,
+    undoStack:state.undoStack
+  };
+  localStorage.setItem('sudoku_save_'+d, JSON.stringify(data));
+  // 後方互換用（旧キー）
+  localStorage.setItem('sudoku_save', JSON.stringify(data));
 }
-function loadGame() { try { return JSON.parse(localStorage.getItem('sudoku_save')); } catch { return null; } }
-function clearSave() { localStorage.removeItem('sudoku_save'); }
+function loadGame(d) {
+  try {
+    if (d) return JSON.parse(localStorage.getItem('sudoku_save_'+d));
+    return JSON.parse(localStorage.getItem('sudoku_save'));
+  } catch { return null; }
+}
+function clearSave(d) {
+  if (d) { localStorage.removeItem('sudoku_save_'+d); }
+  else { localStorage.removeItem('sudoku_save'); }
+}
+
+/* 難易度ごとの進行中ゲームキャッシュ（メモリ） */
+const savedGames = { hard: null, expert: null, insane: null };
+
+function saveGameForDiff(d) {
+  if (!state.puzzle || state.difficulty !== d) return;
+  if (state.status==='completed'||state.status==='idle') return;
+  savedGames[d] = {
+    puzzle: state.puzzle,
+    cells: state.cells.map(c=>({...c, candidates:new Set(c.candidates)})),
+    elapsed: state.elapsed,
+    hints: state.hints,
+    poolIndex: state.poolIndex,
+    undoStack: [...state.undoStack],
+    status: 'paused'
+  };
+}
+
+function restoreGameForDiff(d) {
+  const saved = savedGames[d];
+  if (!saved) return false;
+  state.puzzle    = saved.puzzle;
+  state.cells     = saved.cells.map(c=>({...c, candidates:new Set(c.candidates)}));
+  state.difficulty= d;
+  state.elapsed   = saved.elapsed;
+  state.hints     = saved.hints;
+  state.poolIndex = saved.poolIndex;
+  state.undoStack = [...saved.undoStack];
+  state.status    = 'paused';
+  state.selected  = -1;
+  state.currentHint = null;
+  return true;
+}
+
+function clearSavedGame(d) {
+  savedGames[d] = null;
+  clearSave(d);
+}
 
 /* ================================================================
    HAPTIC
@@ -2322,7 +2374,7 @@ function handleComplete() {
   renderBoard();
   markPoolCompleted();
   saveRecord();
-  clearSave();
+  clearSavedGame(state.difficulty);
   haptic('heavy');
 
   // クリア演出を表示
@@ -2498,9 +2550,12 @@ function showScreen(id) {
 }
 
 function goHome() {
-  saveGame();
-  // ゲーム中ならポーズ状態で保持（リセットしない）
+  // 現在の難易度のゲームをメモリに保存
   if (state.status==='playing') { state.status='paused'; }
+  if (state.puzzle && state.status==='paused') {
+    saveGameForDiff(state.difficulty);
+    saveGame();
+  }
   stopTimer();
   showScreen('home');
   updateContinueBtn();
@@ -2508,35 +2563,42 @@ function goHome() {
 
 function updateContinueBtn() {
   const diffs=['hard','expert','insane'];
-  const active = (state.status==='idle'||state.status==='playing'||state.status==='paused') && state.puzzle;
   diffs.forEach(d=>{
-    const btn = document.getElementById('continue-btn-'+d);
+    const btn  = document.getElementById('continue-btn-'+d);
     const card = document.getElementById('diff-card-'+d);
     if (!btn) return;
-    const hasContinue = active && state.difficulty===d;
+    const hasContinue = !!savedGames[d];
     if (hasContinue) {
       btn.classList.add('show');
       // カード全体クリック（プール開始）を無効化
       if (card) card.onclick = null;
     } else {
       btn.classList.remove('show');
-      // カード全体クリックを復元（進行中ゲームがある場合は確認ダイアログ）
-      if (card) card.onclick = () => {
-        const hasActive = (state.status==='playing'||state.status==='paused') && state.puzzle;
-        if (hasActive) {
-          const name = DIFFICULTIES[state.difficulty].name;
-          if (!confirm(`${name}の問題が進行中です。\n別の問題を開始しますか？`)) return;
-          state.puzzle = null; state.status = 'idle';
-          saveGame(); updateContinueBtn();
-        }
-        startFromPool(d);
-      };
+      // カード全体クリックを復元（確認なし・そのまま開始）
+      if (card) card.onclick = () => startFromPool(d);
     }
   });
 }
 
-function resumeCurrentGame() {
+function resumeCurrentGame(d) {
+  if (d && savedGames[d]) {
+    restoreGameForDiff(d);
+  }
+  const diff = DIFFICULTIES[state.difficulty];
+  document.getElementById('diff-badge').textContent = diff.name;
+  document.getElementById('diff-badge').style.background = diff.gradient;
+  document.getElementById('timer-est').innerHTML = `目安<br>${diff.est}`;
+  // numpad再構築
+  const numpad = document.getElementById('numpad');
+  numpad.innerHTML = '';
+  for (let n=1;n<=9;n++) {
+    const btn=document.createElement('button');
+    btn.className='num-btn'; btn.textContent=n;
+    btn.onclick=()=>inputNumber(n);
+    numpad.appendChild(btn);
+  }
   showScreen('game');
+  buildBoard();
   renderBoard();
   renderTimer();
   renderTimerState();
@@ -2660,9 +2722,8 @@ function tryRegenerateDiff(d) {
   if (hasContinue) {
     if (!confirm('進行中の問題は破棄されます。\n新しい問題を生成しますか？')) return;
     // 進行中データをリセット
-    state.puzzle = null;
-    state.status = 'idle';
-    saveGame();
+    clearSavedGame(d);
+    if (state.difficulty === d) { state.puzzle = null; state.status = 'idle'; }
     updateContinueBtn();
   }
   regenerateDiff(d);
@@ -2772,7 +2833,7 @@ function buildHome() {
       ${best?`<div class="diff-card-best">🏅 ${best}</div>`:''}
       <div class="diff-card-pool" id="pool-count-${d}">準備中…</div>
       <div class="diff-card-bar" style="background:${info.gradient}"></div>
-      <button class="diff-card-continue-btn" id="continue-btn-${d}" onclick="event.stopPropagation();resumeCurrentGame()">▶ 問題に戻る</button>
+      <button class="diff-card-continue-btn" id="continue-btn-${d}" onclick="event.stopPropagation();resumeCurrentGame('${d}')">▶ 問題に戻る</button>
       <button class="diff-card-gen-btn" id="gen-btn-${d}" onclick="event.stopPropagation();tryRegenerateDiff('${d}')" disabled>🔄 新しい問題を生成</button>
     `;
     card.onclick=()=>startFromPool(d);
@@ -2943,35 +3004,23 @@ window.addEventListener('load',()=>{
   initPool();
   if (handleUrlParams()) return;
 
-  // 途中セーブ復元チェック
-  const saved=loadGame();
-  if (saved) {
-    const ok=confirm('前回の途中のゲームがあります。続けますか？');
-    if (ok) {
-      state.puzzle=saved.puzzle;
-      state.difficulty=saved.difficulty;
-      state.elapsed=saved.elapsed;
-      state.hints=saved.hints;
-      state.cells=saved.cells.map(c=>({...c,candidates:new Set(c.candidates)}));
-      state.status='paused';
-      showScreen('game');
-      const diff=DIFFICULTIES[saved.difficulty];
-      document.getElementById('diff-badge').textContent=diff.name;
-      document.getElementById('diff-badge').style.background=diff.gradient;
-      document.getElementById('timer-est').innerHTML=`目安<br>${diff.est}`;
-      const numpad=document.getElementById('numpad');
-      numpad.innerHTML='';
-      for (let n=1;n<=9;n++) {
-        const btn=document.createElement('button');
-        btn.className='num-btn'; btn.textContent=n;
-        btn.onclick=()=>inputNumber(n);
-        numpad.appendChild(btn);
-      }
-      buildBoard(); renderBoard(); renderTimer(); renderTimerState();
-    } else {
-      clearSave();
-    }
-  }
+  // 難易度ごとの途中セーブ復元（確認なし・ホーム画面で「問題に戻る」を表示）
+  const diffs = ['hard','expert','insane'];
+  diffs.forEach(d => {
+    const saved = loadGame(d);
+    if (!saved) return;
+    if (!DIFFICULTIES[saved.difficulty]) return;
+    savedGames[d] = {
+      puzzle: saved.puzzle,
+      cells: saved.cells.map(c=>({...c, candidates:new Set(c.candidates)})),
+      elapsed: saved.elapsed,
+      hints: saved.hints,
+      poolIndex: saved.poolIndex ?? -1,
+      undoStack: saved.undoStack ?? [],
+      status: 'paused'
+    };
+  });
+  updateContinueBtn();
 });
 </script>
 </body>
