@@ -2577,8 +2577,9 @@ function goHome() {
 function updateContinueBtn() {
   const diffs=['hard','expert','insane'];
   diffs.forEach(d=>{
-    const btn  = document.getElementById('continue-btn-'+d);
-    const card = document.getElementById('diff-card-'+d);
+    const btn    = document.getElementById('continue-btn-'+d);
+    const card   = document.getElementById('diff-card-'+d);
+    const genBtn = document.getElementById('gen-btn-'+d);
     if (!btn) return;
     const hasContinue = !!savedGames[d];
     if (hasContinue) {
@@ -2587,8 +2588,11 @@ function updateContinueBtn() {
       if (card) card.onclick = null;
     } else {
       btn.classList.remove('show');
-      // カード全体クリックを復元（確認なし・そのまま開始）
       if (card) card.onclick = () => startFromPool(d);
+    }
+    // gen-btnは pool 準備済みなら常に有効
+    if (genBtn && !poolGenerating[d] && puzzlePool[d].length > 0) {
+      genBtn.disabled = false;
     }
   });
 }
@@ -2733,12 +2737,9 @@ async function regenerateDiff(d) {
 }
 
 function tryRegenerateDiff(d) {
-  // 進行中の問題があるとき確認ダイアログを表示
-  const hasContinue = (state.status==='idle'||state.status==='playing'||state.status==='paused')
-                      && state.puzzle && state.difficulty===d;
-  if (hasContinue) {
+  // savedGames を正として進行中チェック
+  if (savedGames[d]) {
     if (!confirm('進行中の問題は破棄されます。\n新しい問題を生成しますか？')) return;
-    // 進行中データをリセット
     clearSavedGame(d);
     if (state.difficulty === d) { state.puzzle = null; state.status = 'idle'; }
     updateContinueBtn();
