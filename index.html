@@ -2448,6 +2448,9 @@ function requestHint() {
 
   document.getElementById('hint-backdrop').classList.add('show');
   document.getElementById('hint-sheet').classList.add('show');
+  // ヒント表示中はツールバーを隠す
+  const bar = document.querySelector('.tool-pill-bar');
+  if (bar) bar.style.display = 'none';
   haptic('light');
 }
 
@@ -2488,6 +2491,9 @@ function applyHint() {
 function dismissHint() {
   document.getElementById('hint-backdrop').classList.remove('show');
   document.getElementById('hint-sheet').classList.remove('show');
+  // ツールバーを再表示
+  const bar = document.querySelector('.tool-pill-bar');
+  if (bar) bar.style.display = '';
   clearHintHighlight();
   state.currentHint=null;
   renderBoard();
