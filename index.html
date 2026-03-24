@@ -71,7 +71,13 @@
     ============================================================ */
     .screen { display: none; flex-direction: column; height: 100dvh; width: 100%; }
     .screen.active { display: flex; }
-    #game.active { justify-content: center; align-items: center; }
+    /* ゲームコンテンツ：ナビ以外を縦横中央に */
+    .game-content {
+      flex: 1; min-height: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      width: 100%;
+    }
 
     /* ============================================================
        HOME SCREEN
@@ -674,11 +680,6 @@
         <span class="tool-pill-label">もどす</span>
       </button>
       <div class="tool-pill-sep"></div>
-      <button class="tool-pill-btn" id="tp-memo" onclick="toggleMemo()">
-        <span class="tool-pill-icon" id="memo-icon">✏️</span>
-        <span class="tool-pill-label">メモ</span>
-      </button>
-      <div class="tool-pill-sep"></div>
       <button class="tool-pill-btn" onclick="eraseCell()">
         <span class="tool-pill-icon">✕</span>
         <span class="tool-pill-label">削除</span>
@@ -690,19 +691,21 @@
       </button>
     </div>
   </div>
-  <div class="timer-area">
-    <div class="timer-est" id="timer-est"></div>
-    <div class="timer-center">
-      <div class="timer-value" id="timer-val" onclick="toggleTimerPause()">0:00<span class="timer-pause-icon" id="pause-icon" style="display:none">⏸</span></div>
-      <div class="timer-hint" id="timer-hint">▶ タップでスタート</div>
+  <div class="game-content">
+    <div class="timer-area">
+      <div class="timer-est" id="timer-est"></div>
+      <div class="timer-center">
+        <div class="timer-value" id="timer-val" onclick="toggleTimerPause()">0:00<span class="timer-pause-icon" id="pause-icon" style="display:none">⏸</span></div>
+        <div class="timer-hint" id="timer-hint">▶ タップでスタート</div>
+      </div>
+      <div class="timer-badge" id="diff-badge">ふつう</div>
     </div>
-    <div class="timer-badge" id="diff-badge">ふつう</div>
-  </div>
-  <div class="board-wrap">
-    <div class="board" id="board"></div>
-  </div>
-  <div class="numpad-area">
-    <div class="numpad" id="numpad"></div>
+    <div class="board-wrap">
+      <div class="board" id="board"></div>
+    </div>
+    <div class="numpad-area">
+      <div class="numpad" id="numpad"></div>
+    </div>
   </div>
 </div>
 
@@ -1328,7 +1331,6 @@ let state = {
   elapsed: 0,
   selected: -1,
   hints: 0,
-  isMemo: false,
   currentHint: null,
   undoStack: [],
   timerInterval: null,
@@ -1457,7 +1459,6 @@ function initState(puzzle, difficulty) {
   state.elapsed = 0;
   state.selected = -1;
   state.hints = 0;
-  state.isMemo = false;
   state.currentHint = null;
   state.undoStack = [];
   stopTimer();
@@ -1487,15 +1488,6 @@ function inputNumber(n) {
   if (sel.given) return;
   if (state.status==='idle') startTimer();
   if (state.status!=='playing') return;
-
-  if (state.isMemo) {
-    pushUndo();
-    if (sel.candidates.has(n)) sel.candidates.delete(n);
-    else sel.candidates.add(n);
-    haptic('light');
-    renderBoard();
-    return;
-  }
 
   pushUndo();
   if (sel.value===n) {
@@ -1530,14 +1522,6 @@ function eraseCell() {
   haptic('light'); renderBoard();
 }
 
-function toggleMemo() {
-  state.isMemo=!state.isMemo;
-  haptic('light');
-  const icon=document.getElementById('memo-icon');
-  icon.classList.toggle('active',state.isMemo);
-  icon.textContent=state.isMemo?'✏️':'✏️';
-  document.getElementById('tp-memo').classList.toggle('active',state.isMemo);
-}
 
 function pushUndo() {
   state.undoStack.push(state.cells.map(c=>({...c,candidates:new Set(c.candidates)})));
