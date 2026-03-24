@@ -1,11 +1,15 @@
 // sw.js — Service Worker
 // 完全オフライン対応・キャッシュ戦略
 
-const CACHE_NAME = 'sudoku-v1';
+const CACHE_NAME = 'sudoku-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/engine/validator.js',
+  '/engine/solver.js',
+  '/engine/analyzer.js',
+  '/engine/generator.js',
 ];
 
 // ---- インストール：静的アセットをキャッシュ ----
