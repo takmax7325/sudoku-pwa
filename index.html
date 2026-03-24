@@ -822,10 +822,11 @@ function isGridValid(grid) {
   return true;
 }
 
-function countSolutions(grid, limit=2) {
-  let count = 0;
+function countSolutions(grid, limit=2, nodeLimit=30000) {
+  let count = 0, nodes = 0;
   function bt(g) {
-    if (count >= limit) return;
+    if (count >= limit || nodes > nodeLimit) return;
+    nodes++;
     let best=-1, bestCnt=10;
     for (let i=0;i<81;i++) {
       if (g[i]) continue;
@@ -884,7 +885,7 @@ function generateFullSolution(rngFn) {
   bt(); return g;
 }
 
-function generatePuzzle(difficulty, seed=null) {
+async function generatePuzzle(difficulty, seed=null) {
   const rng = seed!==null ? seededRng(seed) : Math.random.bind(Math);
   const solution = generateFullSolution(rng);
   const puzzle = [...solution];
@@ -892,11 +893,13 @@ function generatePuzzle(difficulty, seed=null) {
     easy:   {min:36,max:45}, normal:{min:30,max:35},
     hard:   {min:25,max:29}, expert:{min:22,max:24}, insane:{min:17,max:21}
   };
-  const {min,max} = diffParams[difficulty]||diffParams.normal;
+  const {min} = diffParams[difficulty]||diffParams.normal;
   const indices = shuffle(Array.from({length:81},(_,i)=>i), rng);
-  let attempts=0;
+  let attempts=0, steps=0;
   for (const idx of indices) {
-    if (attempts>300) break;
+    if (attempts>60) break;
+    steps++;
+    if (steps%8===0) await new Promise(r=>setTimeout(r,0)); // UIに制御を返す
     const backup=puzzle[idx];
     puzzle[idx]=0;
     if (puzzle.filter(v=>v!==0).length<min) { puzzle[idx]=backup; continue; }
@@ -1823,7 +1826,7 @@ function getTodayKey() {
 /* ================================================================
    START GAME
 ================================================================ */
-function startNewGame(difficulty, puzzle=null) {
+async function startNewGame(difficulty, puzzle=null) {
   showScreen('game');
   const diff=DIFFICULTIES[difficulty];
   document.getElementById('diff-badge').textContent=diff.name;
@@ -1850,22 +1853,17 @@ function startNewGame(difficulty, puzzle=null) {
 
   // 生成
   document.getElementById('loading').classList.add('show');
-  setTimeout(()=>{
-    const p=generatePuzzle(difficulty);
-    initState(p, difficulty);
-    buildBoard(); renderBoard(); renderTimer(); renderTimerState();
-    document.getElementById('loading').classList.remove('show');
-  }, 50);
+  const p = await generatePuzzle(difficulty);
+  initState(p, difficulty);
+  buildBoard(); renderBoard(); renderTimer(); renderTimerState();
+  document.getElementById('loading').classList.remove('show');
 }
 
-function startDaily() {
+async function startDaily() {
   const seed=parseInt(getTodayKey());
   document.getElementById('loading').classList.add('show');
-  setTimeout(()=>{
-    const p=generatePuzzle('hard', seed);
-    startNewGame('hard', p);
-    document.getElementById('loading').classList.remove('show');
-  }, 50);
+  const p = await generatePuzzle('hard', seed);
+  startNewGame('hard', p);
 }
 
 /* ================================================================
