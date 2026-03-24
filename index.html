@@ -163,6 +163,8 @@
     .diff-card-gen-btn:active { transform: scale(0.95); background: var(--bg3); opacity: 0.8; }
     .diff-card-gen-btn:disabled { opacity: 0.35; pointer-events: none; }
     .diff-card.not-ready { opacity: 0.6; pointer-events: none; }
+    .diff-card.not-ready .diff-card-gen-btn,
+    .diff-card.not-ready .diff-card-continue-btn { pointer-events: auto; }
 
 
     /* ============================================================
@@ -2650,6 +2652,21 @@ async function regenerateDiff(d) {
   await refillPool(d);
 }
 
+function tryRegenerateDiff(d) {
+  // 進行中の問題があるとき確認ダイアログを表示
+  const hasContinue = (state.status==='idle'||state.status==='playing'||state.status==='paused')
+                      && state.puzzle && state.difficulty===d;
+  if (hasContinue) {
+    if (!confirm('進行中の問題は破棄されます。\n新しい問題を生成しますか？')) return;
+    // 進行中データをリセット
+    state.puzzle = null;
+    state.status = 'idle';
+    saveGame();
+    updateContinueBtn();
+  }
+  regenerateDiff(d);
+}
+
 function startFromPool(d, idx) {
   if (idx === undefined) {
     idx = puzzlePool[d].findIndex(e => !e.completed);
@@ -2755,7 +2772,7 @@ function buildHome() {
       <div class="diff-card-pool" id="pool-count-${d}">準備中…</div>
       <div class="diff-card-bar" style="background:${info.gradient}"></div>
       <button class="diff-card-continue-btn" id="continue-btn-${d}" onclick="event.stopPropagation();resumeCurrentGame()">▶ 問題に戻る</button>
-      <button class="diff-card-gen-btn" id="gen-btn-${d}" onclick="event.stopPropagation();regenerateDiff('${d}')" disabled>🔄 新しい問題を生成</button>
+      <button class="diff-card-gen-btn" id="gen-btn-${d}" onclick="event.stopPropagation();tryRegenerateDiff('${d}')" disabled>🔄 新しい問題を生成</button>
     `;
     card.onclick=()=>startFromPool(d);
     grid.appendChild(card);
