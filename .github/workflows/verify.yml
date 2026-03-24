@@ -1,0 +1,167 @@
+name: Verify Vercel Deployment
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    name: 🔍 デプロイ動作確認
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Vercelのデプロイ完了を待つ ──────────────────────────
+      - name: ⏳ Vercel デプロイ待機
+        run: |
+          echo "Vercel のデプロイ完了を待機中..."
+          DEPLOY_URL="https://sudoku-pwa-14q8.vercel.app"
+          COMMIT_SHA="${{ github.sha }}"
+          MAX=24        # 最大 2 分 (5秒 × 24)
+          COUNT=0
+
+          while [ $COUNT -lt $MAX ]; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$DEPLOY_URL")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ HTTP 200 確認 (試行 $((COUNT+1))/$MAX)"
+              break
+            fi
+            echo "  → HTTP $STATUS ... 5秒後に再試行 ($((COUNT+1))/$MAX)"
+            sleep 5
+            COUNT=$((COUNT+1))
+          done
+
+          if [ $COUNT -eq $MAX ]; then
+            echo "❌ タイムアウト: Vercel がレスポンスを返しませんでした"
+            exit 1
+          fi
+
+      # ── 2. エンジン関数の存在チェック ────────────────────────────
+      - name: 🧠 エンジン関数チェック
+        run: |
+          DEPLOY_URL="https://sudoku-pwa-14q8.vercel.app"
+          HTML=$(curl -s "$DEPLOY_URL")
+          FAILED=0
+
+          check() {
+            if echo "$HTML" | grep -q "$1"; then
+              echo "  ✅ $1"
+            else
+              echo "  ❌ $1 が見つかりません"
+              FAILED=1
+            fi
+          }
+
+          echo "--- エンジン関数の存在確認 ---"
+          check "isPlacementValid"
+          check "hasUniqueSolution"
+          check "solveLogically"
+          check "evaluateDifficulty"
+          check "analyzeGrid"
+          check "generatePuzzle"
+          check "nextStep"
+
+          if [ $FAILED -ne 0 ]; then
+            echo "❌ 一部のエンジン関数が見つかりませんでした"
+            exit 1
+          fi
+          echo "✅ 全エンジン関数 OK"
+
+      # ── 3. 必要なファイルの疎通確認 ──────────────────────────────
+      - name: 📁 ファイル疎通確認
+        run: |
+          BASE="https://sudoku-pwa-14q8.vercel.app"
+          FAILED=0
+
+          check_url() {
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$1")
+            if [ "$STATUS" = "200" ]; then
+              echo "  ✅ $1 ($STATUS)"
+            else
+              echo "  ❌ $1 ($STATUS)"
+              FAILED=1
+            fi
+          }
+
+          echo "--- ファイル疎通確認 ---"
+          check_url "$BASE/"
+          check_url "$BASE/index.html"
+          check_url "$BASE/sw.js"
+          check_url "$BASE/manifest.json"
+          check_url "$BASE/engine/validator.js"
+          check_url "$BASE/engine/solver.js"
+          check_url "$BASE/engine/analyzer.js"
+          check_url "$BASE/engine/generator.js"
+          check_url "$BASE/icons/icon-192.png"
+          check_url "$BASE/icons/icon-512.png"
+
+          if [ $FAILED -ne 0 ]; then
+            echo "❌ 一部のファイルにアクセスできませんでした"
+            exit 1
+          fi
+          echo "✅ 全ファイル OK"
+
+      # ── 4. Node.js でゲームロジック動作確認 ──────────────────────
+      - name: 🎮 ゲームロジック動作確認
+        run: |
+          node - <<'EOF'
+          const https = require('https');
+
+          function fetch(url) {
+            return new Promise((resolve, reject) => {
+              https.get(url, res => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => resolve(data));
+              }).on('error', reject);
+            });
+          }
+
+          (async () => {
+            const html = await fetch('https://sudoku-pwa-14q8.vercel.app/index.html');
+
+            // ステップスコアテーブルの確認
+            const techniques = [
+              'Naked Single', 'Hidden Single', 'Naked Pair',
+              'X-Wing', 'Swordfish', 'XY-Wing', 'Unique Rectangle'
+            ];
+            let failed = 0;
+
+            console.log('--- テクニック実装確認 ---');
+            for (const t of techniques) {
+              if (html.includes(t)) {
+                console.log(`  ✅ ${t}`);
+              } else {
+                console.log(`  ❌ ${t} が見つかりません`);
+                failed++;
+              }
+            }
+
+            // 難易度定義の確認
+            console.log('--- 難易度定義確認 ---');
+            for (const d of ['easy', 'normal', 'hard', 'expert', 'insane']) {
+              if (html.includes(d)) {
+                console.log(`  ✅ ${d}`);
+              } else {
+                console.log(`  ❌ ${d} が見つかりません`);
+                failed++;
+              }
+            }
+
+            if (failed > 0) {
+              console.log(`\n❌ ${failed} 件の問題が見つかりました`);
+              process.exit(1);
+            }
+            console.log('\n✅ 全チェック通過');
+          })();
+          EOF
+
+      # ── 5. 結果サマリー ───────────────────────────────────────────
+      - name: 📋 確認結果サマリー
+        if: always()
+        run: |
+          echo ""
+          echo "======================================"
+          echo "  Sudoku PWA デプロイ確認完了"
+          echo "  URL: https://sudoku-pwa-14q8.vercel.app"
+          echo "  Commit: ${{ github.sha }}"
+          echo "======================================"
