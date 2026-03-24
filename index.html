@@ -223,14 +223,13 @@
       margin-top: 1px; opacity: 0; transition: opacity .3s;
     }
     .timer-hint.show { opacity: 1; }
-    /* タイマー値＋バッジの横並び行 */
-    .timer-value-row { display: flex; align-items: center; gap: 8px; }
-    /* 難易度バッジ：タイマー右横にインライン配置 */
+    /* 難易度バッジ：グリッド3列目・左揃え */
     .timer-badge {
+      grid-column: 3;
+      justify-self: start;
       padding: 3px 12px; border-radius: 20px;
       font-size: 12px; font-weight: 700; color: #fff;
       letter-spacing: 0.2px;
-      align-self: center;
     }
     .timer-est {
       grid-column: 1;
@@ -679,16 +678,10 @@
   <div class="timer-area">
     <div class="timer-est" id="timer-est"></div>
     <div class="timer-center">
-      <div class="timer-value-row">
-        <div class="timer-value" id="timer-val" onclick="toggleTimerPause()">0:00<span class="timer-pause-icon" id="pause-icon" style="display:none">⏸</span></div>
-        <div class="timer-badge" id="diff-badge">ふつう</div>
-      </div>
+      <div class="timer-value" id="timer-val" onclick="toggleTimerPause()">0:00<span class="timer-pause-icon" id="pause-icon" style="display:none">⏸</span></div>
       <div class="timer-hint" id="timer-hint">▶ タップでスタート</div>
     </div>
-    <div class="timer-mistakes">
-      <span>ミス</span>
-      <div class="mistake-dots" id="mistake-dots"></div>
-    </div>
+    <div class="timer-badge" id="diff-badge">ふつう</div>
   </div>
   <div class="board-wrap">
     <div class="board" id="board"></div>
