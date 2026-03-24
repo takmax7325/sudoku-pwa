@@ -5,8 +5,8 @@
   "start_url": "/index.html",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "background_color": "#fdde9e",
+  "theme_color": "#fdde9e",
   "lang": "ja",
   "categories": ["games", "puzzle"],
   "icons": [
