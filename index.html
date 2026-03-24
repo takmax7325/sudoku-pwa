@@ -141,6 +141,24 @@
     .diff-card-bar {
       height: 3px; border-radius: 2px; margin-top: 10px;
     }
+    .diff-card.selected {
+      border-color: var(--accent);
+      background: var(--accent-light);
+      box-shadow: 0 0 0 3px rgba(52,120,246,0.15);
+    }
+
+    /* 更新ボタン */
+    .new-game-btn {
+      width: 100%; padding: 16px;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: var(--radius);
+      font-size: 17px; font-weight: 700; font-family: var(--font);
+      cursor: pointer; letter-spacing: 0.3px;
+      transition: opacity .15s, transform .1s var(--spring);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .new-game-btn:active { opacity: 0.85; transform: scale(0.97); }
+    .new-game-btn:disabled { opacity: 0.35; pointer-events: none; }
 
     /* 統計 */
     .stats-row { display: flex; gap: 12px; }
@@ -203,7 +221,7 @@
     .timer-area {
       width: 100%;
       display: flex; align-items: center; justify-content: center;
-      padding: 0 16px 2px; flex-shrink: 0; gap: 10px;
+      padding: 0 16px 0; flex-shrink: 0; gap: 10px;
     }
     .timer-center { display: flex; flex-direction: column; align-items: center; }
     .timer-value {
@@ -239,8 +257,8 @@
 
     /* ボード */
     .board-wrap {
-      flex: 1; width: 100%; display: flex; align-items: center; justify-content: center;
-      padding: 0 4px; min-height: 0;
+      width: 100%; display: flex; align-items: center; justify-content: center;
+      padding: 4px 4px; flex-shrink: 0;
     }
     .board {
       display: grid; grid-template-columns: repeat(9, 1fr);
@@ -296,7 +314,7 @@
     }
 
     /* 入力パッド */
-    .numpad-area { width: 100%; padding: 6px 12px; flex-shrink: 0; }
+    .numpad-area { width: 100%; padding: 0 12px 6px; flex-shrink: 0; }
     .numpad {
       display: grid; grid-template-columns: repeat(9, 1fr);
       gap: 5px; margin-bottom: 8px;
@@ -624,6 +642,9 @@
   <!-- 難易度選択 -->
   <div class="section-label">難易度を選択</div>
   <div class="diff-grid" id="diff-grid"></div>
+
+  <!-- 更新ボタン -->
+  <button class="new-game-btn" id="new-game-btn" onclick="onNewGameBtn()" disabled>🔄 新しい問題を生成</button>
 
   <!-- 統計 -->
   <div class="stats-row">
@@ -1775,6 +1796,24 @@ function calcScore() {
 
 function playAgain() { startNewGame(state.difficulty); }
 
+let selectedDiff = null;
+
+function selectDifficulty(d) {
+  selectedDiff = d;
+  // カードの選択状態を更新
+  document.querySelectorAll('.diff-card').forEach(c => c.classList.remove('selected'));
+  const cards = document.querySelectorAll('.diff-card');
+  const diffs = ['easy','normal','hard','expert','insane'];
+  const idx = diffs.indexOf(d);
+  if (idx >= 0 && cards[idx]) cards[idx].classList.add('selected');
+  // ボタンを有効化
+  document.getElementById('new-game-btn').disabled = false;
+}
+
+function onNewGameBtn() {
+  if (selectedDiff) startNewGame(selectedDiff);
+}
+
 /* ================================================================
    HOME
 ================================================================ */
@@ -1800,7 +1839,7 @@ function buildHome() {
       ${best?`<div class="diff-card-best">🏅 ${best}</div>`:''}
       <div class="diff-card-bar" style="background:${info.gradient}"></div>
     `;
-    card.onclick=()=>startNewGame(d);
+    card.onclick=()=>selectDifficulty(d);
     grid.appendChild(card);
   });
 
