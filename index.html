@@ -288,9 +288,10 @@
     .timer-pause-icon { font-size: 18px; opacity: 0.45; }
     .timer-hint {
       font-size: 11px; font-weight: 600; color: var(--text3);
-      margin-top: 1px; opacity: 0; transition: opacity .3s;
+      margin-top: 1px; opacity: 0; transition: opacity .3s, color .3s;
     }
     .timer-hint.show { opacity: 1; }
+    .timer-hint.paused { color: var(--red); }
     /* 難易度バッジ：タイマー右隣 */
     .timer-badge {
       padding: 3px 12px; border-radius: 20px;
@@ -2316,7 +2317,16 @@ function renderTimerState() {
   const icon  = document.getElementById('pause-icon');
   const hint  = document.getElementById('timer-hint');
   if (icon) icon.style.display = state.status === 'paused' ? 'inline' : 'none';
-  if (hint) hint.classList.toggle('show', state.status === 'idle');
+  if (hint) {
+    if (state.status === 'paused') {
+      hint.textContent = '一時停止中';
+      hint.classList.add('show', 'paused');
+    } else {
+      hint.textContent = '▶ タップでスタート';
+      hint.classList.remove('paused');
+      hint.classList.toggle('show', state.status === 'idle');
+    }
+  }
 }
 
 function shakeCell(idx) {
