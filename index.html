@@ -399,19 +399,6 @@
     .ctrl-icon.active { background: var(--accent-light); color: var(--accent); }
     .ctrl-label { font-size: 11px; color: var(--text2); font-family: var(--font); font-weight: 500; }
 
-    /* ============================================================
-       PAUSE OVERLAY
-    ============================================================ */
-    .pause-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
-      display: flex; align-items: center; justify-content: center;
-      flex-direction: column; gap: 16px; z-index: 50;
-      opacity: 0; pointer-events: none; transition: opacity .2s;
-    }
-    .pause-overlay.show { opacity: 1; pointer-events: all; }
-    .pause-icon { font-size: 64px; }
-    .pause-title { font-size: 24px; font-weight: 800; color: #fff; }
-    .pause-hint  { font-size: 15px; color: rgba(255,255,255,0.7); }
 
     /* ============================================================
        HINT SHEET
@@ -760,12 +747,6 @@
   <button class="result-btn-home"  onclick="goHome()">ホームに戻る</button>
 </div>
 
-<!-- Pause Overlay -->
-<div class="pause-overlay" id="pause-overlay" onclick="resumeGame()">
-  <div class="pause-icon">⏸</div>
-  <div class="pause-title">一時停止中</div>
-  <div class="pause-hint">タップして再開</div>
-</div>
 
 <!-- Hint Sheet -->
 <div class="sheet-backdrop" id="hint-backdrop" onclick="dismissHint()"></div>
@@ -2163,7 +2144,7 @@ function renderTimer() {
   const t = state.elapsed;
   const h = ~~(t/3600), m = ~~((t%3600)/60), s = t%60;
   el.textContent = h>0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
-  if (state.status==='paused') el.style.color='var(--text2)';
+  if (state.status==='paused') el.style.color='var(--red)';
   else el.style.color='';
 }
 
@@ -2310,7 +2291,6 @@ function pauseGame() {
   if (state.status!=='playing') return;
   state.status='paused';
   stopTimer();
-  document.getElementById('pause-overlay').classList.add('show');
   renderTimerState();
   haptic('light');
   saveGame();
@@ -2318,7 +2298,6 @@ function pauseGame() {
 
 function resumeGame() {
   if (state.status!=='paused') return;
-  document.getElementById('pause-overlay').classList.remove('show');
   state.status='playing';
   startTimer();
   renderTimerState();
@@ -2427,7 +2406,6 @@ function goHome() {
   // ゲーム中ならポーズ状態で保持（リセットしない）
   if (state.status==='playing') { state.status='paused'; }
   stopTimer();
-  document.getElementById('pause-overlay').classList.remove('show');
   showScreen('home');
   updateHomeStats();
   updateContinueBtn();
@@ -2881,7 +2859,6 @@ window.addEventListener('load',()=>{
         numpad.appendChild(btn);
       }
       buildBoard(); renderBoard(); renderTimer(); renderTimerState();
-      document.getElementById('pause-overlay').classList.add('show');
     } else {
       clearSave();
     }
