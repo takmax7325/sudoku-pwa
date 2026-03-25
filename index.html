@@ -697,6 +697,46 @@
     }
 
     /* ============================================================
+       ペンシルモード追加スタイル
+    ============================================================ */
+    /* ペンシルモードON時の候補数字（青みがかったハイライト） */
+    .cand-num.pencil-cand {
+      color: var(--accent);
+      font-weight: 700;
+      opacity: 0.85;
+    }
+    /* ペンシルモードON時のセル背景（淡いティール） */
+    .cell.pencil-mode-cell {
+      background: rgba(52,120,246,0.05);
+    }
+
+    /* ============================================================
+       ヒント段階インジケーター
+    ============================================================ */
+    .hint-stage-bar {
+      display: flex; gap: 5px;
+      margin-bottom: 6px;
+    }
+    .hint-stage-dot {
+      flex: 1; height: 3px; border-radius: 2px;
+      background: var(--bg3);
+      transition: background .25s var(--ease);
+    }
+    .hint-stage-dot.done   { background: var(--accent); }
+    .hint-stage-dot.active { background: var(--orange); }
+    .hint-stage-label {
+      font-size: 11px; font-weight: 700;
+      color: var(--text3);
+      letter-spacing: 0.6px; text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    /* ヒントシート内の削除候補ハイライト */
+    .hint-elim-cells {
+      font-size: 12px; color: var(--red);
+      margin-top: 4px;
+    }
+
+    /* ============================================================
        背景キャンバス（数独グリッド + グラデーション + ノイズ）
     ============================================================ */
     #bg-canvas { display: none; }
@@ -764,6 +804,11 @@
         <span class="tool-pill-label">削除</span>
       </button>
       <div class="tool-pill-sep"></div>
+      <button class="tool-pill-btn" id="tp-pencil" onclick="togglePencilMode()">
+        <span class="tool-pill-icon">✏️</span>
+        <span class="tool-pill-label">メモ</span>
+      </button>
+      <div class="tool-pill-sep"></div>
       <button class="tool-pill-btn" onclick="requestHint()">
         <span class="tool-pill-icon">💡</span>
         <span class="tool-pill-label">ヒント</span>
@@ -813,11 +858,20 @@
     <div class="hint-tech" id="hint-tech">Naked Single</div>
     <div class="hint-close" onclick="dismissHint()">✕</div>
   </div>
+  <!-- 段階インジケーター (新機能) -->
+  <div class="hint-stage-bar" id="hint-stage-bar">
+    <div class="hint-stage-dot" id="hint-dot-0"></div>
+    <div class="hint-stage-dot" id="hint-dot-1"></div>
+    <div class="hint-stage-dot" id="hint-dot-2"></div>
+  </div>
+  <div class="hint-stage-label" id="hint-stage-label">ステップ 1/3 — 注目箇所</div>
+  <!-- ここまで新機能 -->
   <div class="hint-explanation" id="hint-explanation"></div>
   <div class="hint-detail" id="hint-detail"></div>
+  <div class="hint-elim-cells" id="hint-elim-cells"></div>
   <div class="hint-btns">
     <button class="hint-btn-secondary" onclick="dismissHint()">確認のみ</button>
-    <button class="hint-btn-primary" id="hint-apply-btn" onclick="applyHint()">適用する</button>
+    <button class="hint-btn-primary" id="hint-next-btn" onclick="advanceHintStage()">次のヒント ›</button>
   </div>
 </div>
 
@@ -2149,6 +2203,11 @@ let state = {
   undoStack: [],
   timerInterval: null,
   poolIndex: -1,       // 現在プレイ中のプール内インデックス
+  // --- 新機能: ペンシルモード ---
+  pencilMode: false,   // ✏️ ペンシル（候補メモ）モード
+  // --- 新機能: 段階ヒント ---
+  hintStage: 0,        // 現在のヒント段階 (0=非表示, 1〜3=表示中)
+  hintSteps: [],       // 段階テキスト配列 [注目箇所, 理由, 結論]
 };
 
 /* ================================================================
@@ -2328,6 +2387,12 @@ function initState(puzzle, difficulty) {
   state.hints = 0;
   state.currentHint = null;
   state.undoStack = [];
+  // ペンシルモードをリセット
+  state.pencilMode = false;
+  state.hintStage = 0;
+  state.hintSteps = [];
+  const pencilBtn = document.getElementById('tp-pencil');
+  if (pencilBtn) pencilBtn.classList.remove('active');
   stopTimer();
 }
 
@@ -2344,6 +2409,27 @@ function selectCell(idx) {
   if (state.status==='completed'||state.status==='failed') return;
   if (state.status==='paused') { resumeGame(); return; }
   if (state.status==='idle') startTimer();
+
+  // ペンシルモード: 空マスをタップで候補を自動表示/非表示トグル
+  if (state.pencilMode) {
+    const cell = state.cells[idx];
+    if (!cell.given && !cell.value) {
+      pushUndo();
+      if (cell.candidates.size > 0) {
+        // 既に表示中なら非表示にする
+        cell.candidates = new Set();
+      } else {
+        // 現在の盤面から論理的候補を計算して表示
+        cell.candidates = getCandidatesForCell(idx);
+      }
+      state.selected = idx;
+      renderBoard();
+      haptic('light');
+      return;
+    }
+    // givenセルや埋まったセルは通常選択
+  }
+
   state.selected = state.selected===idx ? -1 : idx;
   renderBoard();
   haptic('light');
@@ -2356,6 +2442,21 @@ function inputNumber(n) {
   if (state.status==='idle') startTimer();
   if (state.status!=='playing') return;
 
+  // ペンシルモード: 数字ボタンで候補を個別トグル
+  if (state.pencilMode) {
+    if (sel.value) return; // 確定済みセルには操作しない
+    pushUndo();
+    if (sel.candidates.has(n)) {
+      sel.candidates.delete(n);
+    } else {
+      sel.candidates.add(n);
+    }
+    haptic('light');
+    renderBoard();
+    return;
+  }
+
+  // 通常モード (既存ロジック変更なし)
   pushUndo();
   if (sel.value===n) {
     sel.value=0; sel.state='empty'; sel.candidates=new Set();
@@ -2515,28 +2616,34 @@ function shakeCell(idx) {
 function requestHint() {
   if (state.status==='idle') startTimer();
   if (state.status==='paused') resumeGame();
-  const grid=state.cells.map(c=>c.value);
-  const step=nextStep(grid);
+
+  // 既にヒント表示中なら次の段階へ進む
+  if (state.currentHint && state.hintStage > 0) {
+    advanceHintStage();
+    return;
+  }
+
+  const grid = state.cells.map(c => c.value);
+  const step = nextStep(grid);
   if (!step) { alert('これ以上ヒントは提供できません\n（別のアプローチが必要です）'); return; }
-  state.currentHint=step;
+
+  state.currentHint = step;
+  state.hintSteps   = generateHintSteps(step); // 段階テキスト生成
+  state.hintStage   = 1;
   state.hints++;
 
-  // ハイライト
+  // ハイライト適用
   applyHintHighlight(step);
 
-  document.getElementById('hint-tech').textContent=step.technique;
-  document.getElementById('hint-explanation').textContent=step.explanation;
-  const detail=[];
-  if (step.placements.length) detail.push(`確定: ${step.placements.map(([r,c,v])=>`(${r+1},${c+1})=${v}`).join(', ')}`);
-  if (step.eliminations.length) detail.push(`候補削除: ${step.eliminations.length}個`);
-  document.getElementById('hint-detail').textContent=detail.join('  ');
-  document.getElementById('hint-apply-btn').style.display=step.placements.length?'':'none';
-
+  // 段階表示を初期化 (ステップ1)
+  document.getElementById('hint-tech').textContent = step.technique;
   document.getElementById('hint-backdrop').classList.add('show');
   document.getElementById('hint-sheet').classList.add('show');
   // ヒント表示中はツールバーを隠す
   const bar = document.querySelector('.tool-pill-bar');
   if (bar) bar.style.display = 'none';
+
+  renderHintStage(1);
   haptic('light');
 }
 
@@ -2559,16 +2666,20 @@ function clearHintHighlight() {
 }
 
 function applyHint() {
-  const step=state.currentHint;
+  const step = state.currentHint;
   if (!step) return;
   pushUndo();
-  step.placements.forEach(([r,c,v])=>{
-    state.cells[r*9+c].value=v;
-    state.cells[r*9+c].state='hint';
-    state.cells[r*9+c].candidates=new Set();
-    removeCandidateFromPeers(r*9+c,v);
+  // 確定処理
+  step.placements.forEach(([r,c,v]) => {
+    state.cells[r*9+c].value      = v;
+    state.cells[r*9+c].state      = 'hint';
+    state.cells[r*9+c].candidates = new Set();
+    removeCandidateFromPeers(r*9+c, v);
   });
-  step.eliminations.forEach(([r,c,v])=>{ state.cells[r*9+c].candidates.delete(v); });
+  // 候補削除処理
+  step.eliminations.forEach(([r,c,v]) => {
+    state.cells[r*9+c].candidates.delete(v);
+  });
   dismissHint();
   renderBoard();
   if (checkComplete()) handleComplete();
@@ -2581,8 +2692,301 @@ function dismissHint() {
   const bar = document.querySelector('.tool-pill-bar');
   if (bar) bar.style.display = '';
   clearHintHighlight();
-  state.currentHint=null;
+  state.currentHint = null;
+  state.hintStage   = 0;
+  state.hintSteps   = [];
   renderBoard();
+}
+
+/* ================================================================
+   ペンシルモード / 候補計算 (新機能)
+================================================================ */
+
+/**
+ * 指定セルの論理的候補を現在の盤面から計算して返す
+ * @param {number} idx  セルインデックス (0〜80)
+ * @returns {Set<number>}
+ */
+function getCandidatesForCell(idx) {
+  const grid = state.cells.map(c => c.value || 0);
+  const row  = ~~(idx / 9);
+  const col  = idx % 9;
+  // buildCandidates() はエンジン内の既存関数を再利用
+  const allCands = buildCandidates(grid);
+  return new Set(allCands[row][col]);
+}
+
+/**
+ * ✏️ ペンシルモードをON/OFFする
+ */
+function togglePencilMode() {
+  state.pencilMode = !state.pencilMode;
+  const btn = document.getElementById('tp-pencil');
+  if (btn) btn.classList.toggle('active', state.pencilMode);
+  haptic('light');
+  renderBoard(); // ペンシルモード時に盤面背景を微妙に変えるため
+}
+
+/* ================================================================
+   段階ヒントエンジン (新機能)
+================================================================ */
+
+/**
+ * ステップオブジェクトから3段階の説明テキストを生成する
+ * @param {object} step  nextStep() が返すステップオブジェクト
+ * @returns {string[]}   [注目箇所, 理由, 結論] の3要素配列
+ */
+function generateHintSteps(step) {
+  const { technique, placements, eliminations, related } = step;
+
+  switch (technique) {
+
+    case 'Naked Single': {
+      const [r, c, v] = placements[0];
+      return [
+        `(${r+1}行・${c+1}列)のマスに注目してください`,
+        `このマスと同じ行・列・ボックスを見ると、1〜9の中で${v}以外はすでに使われています`,
+        `候補は「${v}」のみ → (${r+1},${c+1})に${v}を確定できます ✓`
+      ];
+    }
+
+    case 'Hidden Single': {
+      const [r, c, v] = placements[0];
+      // 行・列・ボックスの判別
+      const allSameRow = related.every(([rr]) => rr === r);
+      const allSameCol = related.every(([,cc]) => cc === c);
+      const area = allSameRow ? `行${r+1}` : allSameCol ? `列${c+1}` : `ボックス`;
+      return [
+        `${area}全体（ハイライト部分）を見渡してください`,
+        `この${area}の中で、数字「${v}」が入れる可能性があるマスは(${r+1},${c+1})だけです`,
+        `(${r+1}行・${c+1}列)に${v}を確定できます ✓`
+      ];
+    }
+
+    case 'Naked Pair': {
+      const [r1,c1] = related[0], [r2,c2] = related[1];
+      const pairDigits = [...state.cells[r1*9+c1]?.candidates?.size >= 2
+        ? state.cells[r1*9+c1].candidates
+        : new Set(eliminations.filter(([rr,cc])=>rr===r1&&cc===c1).map(e=>e[2]))
+      ].slice(0,2);
+      // 削除される数字を取得
+      const elimDigits = [...new Set(eliminations.map(e => e[2]))];
+      return [
+        `(${r1+1},${c1+1})と(${r2+1},${c2+1})の2マスに注目`,
+        `この2マスは${elimDigits.length <= 2 ? elimDigits.join('と') : elimDigits.join('・')}の2候補のみ。どちらかに入るため、同じユニットの他マスからは除去できます`,
+        `対象の候補を${eliminations.length}個削除できます`
+      ];
+    }
+
+    case 'Hidden Pair': {
+      const [r1,c1] = related[0], [r2,c2] = related[1];
+      const elimDigits = [...new Set(eliminations.map(e => e[2]))];
+      return [
+        `(${r1+1},${c1+1})と(${r2+1},${c2+1})に注目`,
+        `あるペアの数字がこの2マスにしか入れません。この2マスはそのペア専用になります`,
+        `ペア以外の余分な候補${elimDigits.join('・')}を${eliminations.length}個削除できます`
+      ];
+    }
+
+    case 'Naked Triple': {
+      const trio = related.slice(0,3).map(([r,c]) => `(${r+1},${c+1})`).join('・');
+      const trioDigits = [...new Set(eliminations.map(e => e[2]))];
+      return [
+        `${trio} の3マスに注目`,
+        `この3マスの候補をすべて合わせると${trioDigits.join('・')}のちょうど3種類。この数字たちはこの3マスの中にしか入りません`,
+        `同じユニットの他マスから${trioDigits.join('・')}の候補を${eliminations.length}個削除できます`
+      ];
+    }
+
+    case 'Pointing Pair': {
+      const v = eliminations[0]?.[2];
+      const [r1,c1] = related[0];
+      const inRow = related.every(([r]) => r === r1);
+      const dir = inRow ? '同じ行' : '同じ列';
+      return [
+        `ハイライトされたボックスに注目してください`,
+        `ボックス内で「${v}」が入れる場所が${dir}に限定されています（Pointing Pair）`,
+        `その${dir}のボックス外にある「${v}」の候補を${eliminations.length}個削除できます`
+      ];
+    }
+
+    case 'Box-Line Reduction': {
+      const v = eliminations[0]?.[2];
+      const [r1,c1] = related[0];
+      const allSameRow = related.every(([r]) => r === r1);
+      const dir = allSameRow ? '行' : '列';
+      return [
+        `ハイライトされた${dir}に注目してください`,
+        `この${dir}の中で「${v}」が入れる場所が、すべて同じボックス内に限定されています（Box-Line Reduction）`,
+        `そのボックス内の「${v}」の候補を、注目${dir}以外の場所から${eliminations.length}個削除できます`
+      ];
+    }
+
+    case 'X-Wing': {
+      const v = eliminations[0]?.[2];
+      // related: [[r1,c1],[r1,c2],[r2,c1],[r2,c2]] or col-base equivalent
+      const rows = [...new Set(related.map(([r])=>r))];
+      const cols = [...new Set(related.map(([,c])=>c))];
+      const isRowBase = rows.length === 2;
+      return [
+        isRowBase
+          ? `行${rows.map(r=>r+1).join('と')}に注目してください（X-Wing）`
+          : `列${cols.map(c=>c+1).join('と')}に注目してください（X-Wing）`,
+        isRowBase
+          ? `これらの行で「${v}」が入れる場所が、ちょうど列${cols.map(c=>c+1).join('と')}に限定されています（X字型パターン）`
+          : `これらの列で「${v}」が入れる場所が、ちょうど行${rows.map(r=>r+1).join('と')}に限定されています（X字型パターン）`,
+        `このX-Wingパターンにより「${v}」の候補を${eliminations.length}個削除できます`
+      ];
+    }
+
+    case 'Swordfish': {
+      const v = eliminations[0]?.[2];
+      const rows = [...new Set(related.map(([r])=>r))];
+      return [
+        `行${rows.map(r=>r+1).join('・')}の3行に注目（Swordfish）`,
+        `それぞれの行で「${v}」が入れる場所が、合計3列以内に収まっています。X-Wingの3行版パターンです`,
+        `この3列の他の行から「${v}」の候補を${eliminations.length}個削除できます`
+      ];
+    }
+
+    case 'XY-Wing': {
+      const [pr, pc] = related[0];
+      const v = eliminations[0]?.[2];
+      const w1 = related[1], w2 = related[2];
+      return [
+        `ピボット(${pr+1},${pc+1})と2つのウィング(${w1[0]+1},${w1[1]+1})・(${w2[0]+1},${w2[1]+1})に注目（XY-Wing）`,
+        `ピボット[AB]は各ウィングと1候補を共有。ウィング1[A${v}]とウィング2[B${v}]が共通の${v}を持ちます。ABのどちらが真でも、${v}は消せます`,
+        `この3マスから見えるセルの「${v}」の候補を${eliminations.length}個削除できます`
+      ];
+    }
+
+    case 'XYZ-Wing': {
+      const [pr, pc] = related[0];
+      const v = eliminations[0]?.[2];
+      const w1 = related[1], w2 = related[2];
+      return [
+        `ピボット(${pr+1},${pc+1})[3候補]とウィング2つに注目（XYZ-Wing）`,
+        `ピボット(ABC)・ウィング1(AB)・ウィング2(AC)の構造。この3マス全員が候補「${v}」を含みます`,
+        `この3マスすべてから見えるセルの「${v}」を${eliminations.length}個削除できます`
+      ];
+    }
+
+    case 'Unique Rectangle': {
+      const v = eliminations[0]?.[2];
+      return [
+        `長方形を形成する4マスに注目（Unique Rectangle）`,
+        `3マスが同じ2候補ペアを持っています。このパターンが成立すると解が一意でなくなるため除去できます`,
+        `4つ目のマスから候補${eliminations.map(e=>e[2]).join('・')}を${eliminations.length}個削除できます`
+      ];
+    }
+
+    case 'Simple Coloring': {
+      const v = eliminations[0]?.[2];
+      return [
+        `「${v}」の連鎖ネットワーク（共役ペア）に注目（Simple Coloring）`,
+        `数字${v}の候補を2色に塗り分けると、同じ色が同じユニットに2つ現れます。これは矛盾を意味します`,
+        `矛盾した色の「${v}」の候補を${eliminations.length}個削除できます`
+      ];
+    }
+
+    default: {
+      const isPlace = placements.length > 0;
+      return [
+        `${technique}パターンを発見しました（ハイライト部分に注目）`,
+        step.explanation,
+        isPlace
+          ? `${placements.map(([r,c,v]) => `(${r+1},${c+1})に${v}`).join('・')}を確定できます ✓`
+          : `${eliminations.length}個の候補を削除できます`
+      ];
+    }
+  }
+}
+
+/**
+ * ヒントシートを指定の段階（1〜3）で描画する
+ * @param {number} stage  1=注目箇所, 2=理由, 3=結論
+ */
+function renderHintStage(stage) {
+  const step   = state.currentHint;
+  const stages = state.hintSteps;
+  if (!step || !stages.length) return;
+
+  const stageLabels = ['注目箇所', '理由', '結論'];
+
+  // 段階ドット更新
+  for (let i = 0; i < 3; i++) {
+    const dot = document.getElementById('hint-dot-' + i);
+    if (!dot) continue;
+    dot.className = 'hint-stage-dot';
+    if (i < stage - 1)      dot.classList.add('done');
+    else if (i === stage-1) dot.classList.add('active');
+  }
+
+  // ラベル更新
+  const labelEl = document.getElementById('hint-stage-label');
+  if (labelEl) labelEl.textContent = `ステップ ${stage}/3 — ${stageLabels[stage-1]}`;
+
+  // 説明テキスト
+  document.getElementById('hint-explanation').textContent = stages[stage-1] || step.explanation;
+
+  // 詳細（結論ステップのみ表示）
+  const detail = [];
+  if (stage >= 3) {
+    if (step.placements.length)
+      detail.push(`確定: ${step.placements.map(([r,c,v]) => `(${r+1},${c+1})=${v}`).join(', ')}`);
+    if (step.eliminations.length)
+      detail.push(`候補削除: ${step.eliminations.length}個`);
+  }
+  document.getElementById('hint-detail').textContent = detail.join('  ');
+
+  // 削除候補の赤表示（結論ステップのみ）
+  const elimEl = document.getElementById('hint-elim-cells');
+  if (elimEl) {
+    if (stage >= 3 && step.eliminations.length) {
+      const groups = {};
+      step.eliminations.forEach(([r,c,v]) => {
+        const key = `(${r+1},${c+1})`;
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(v);
+      });
+      elimEl.textContent = '削除: ' + Object.entries(groups)
+        .map(([pos,vs]) => `${pos}から${vs.join('・')}`)
+        .slice(0, 6)
+        .join(' / ') + (Object.keys(groups).length > 6 ? ' ...' : '');
+    } else {
+      elimEl.textContent = '';
+    }
+  }
+
+  // ボタンテキスト更新
+  const nextBtn = document.getElementById('hint-next-btn');
+  if (nextBtn) {
+    if (stage < 3) {
+      nextBtn.textContent = '次のヒント ›';
+    } else if (step.placements.length) {
+      nextBtn.textContent = '適用する ✓';
+    } else {
+      nextBtn.textContent = '候補削除を適用 ✓';
+    }
+  }
+
+  // ハイライト
+  applyHintHighlight(step);
+}
+
+/**
+ * ヒントを次の段階へ進める（最終段階では適用する）
+ */
+function advanceHintStage() {
+  if (!state.currentHint) return;
+  if (state.hintStage < 3) {
+    state.hintStage++;
+    renderHintStage(state.hintStage);
+    haptic('light');
+  } else {
+    // 第3段階で押したら適用
+    applyHint();
+  }
 }
 
 /* ================================================================
